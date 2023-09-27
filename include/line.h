@@ -1,12 +1,20 @@
 #ifndef LINE_H
 #define LINE_H
 
-typedef struct line_s *Line;
+#include <stdlib.h>
+
+typedef struct line_s {
+    char *data;
+    size_t count;
+    size_t max_size;
+} Line;
+
 
 Line line_init();
 void line_free(Line line);
-void line_append(Line line, const char* str, unsigned long str_count);
-void line_append_line(Line dst, Line src);
-void line_add_char(Line line, char ch, int pos);
+void line_append(Line *line, const char* str, unsigned long str_count);
+void line_append_line(Line *dst, Line src);
+void line_add_char(Line *line, char ch, int pos);
+void line_del_char(Line *line, int pos);
 
 #endif //LINE_H
