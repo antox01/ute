@@ -21,7 +21,8 @@ void line_free(Line line) {
 
 void line_append(Line *line, const char *str, size_t str_count) {
     if(line->count + str_count >= line->max_size) {
-        size_t max_size = line->max_size * 2;
+        size_t max_size = (line->count + str_count) / LINE_MIN_SIZE + 1;
+        max_size *= LINE_MIN_SIZE;
         line->data = realloc(line->data, max_size * sizeof(char));
         
         if(line->data == NULL) {
