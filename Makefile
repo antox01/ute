@@ -8,10 +8,10 @@ OUT_FILES=out/line.o
 .PHONY=setup
 
 ute: setup src/main.c $(OUT_FILES)
-	$(CC) -o out/ute src/main.c  $(OUT_FILES) $(CFLAGS) $(IFLAGS)
+	$(CC) -g -o out/ute src/main.c $(OUT_FILES) $(CFLAGS) $(IFLAGS)
 
 out/line.o: src/line.c
-	$(CC) -c -o out/line.o src/line.c $(IFLAGS)
+	$(CC) -g -c -o out/line.o src/line.c $(IFLAGS)
 
 setup:
 	[ -d "out" ] || mkdir out
