@@ -8,10 +8,14 @@
 #include <unistd.h>
 
 #define MAX_STR_SIZE 256
+#define STATUS_LINE_SPACE 2
+#define STATUS_LINE_RIGHT_CHAR 20
+
+#define KEY_CTRL(x) (x & 0x1F)
 
 #define ret_defer(x) do { ret = x; goto defer; } while(0)
 
-struct {
+typedef struct {
     int cx, cy;
     int scrolly;
     int screen_width, screen_height;
@@ -20,7 +24,8 @@ struct {
     int max_line_count;
     char *file_name;
     char cwd[MAX_STR_SIZE];
-} ute = {0};
+} Editor;
+Editor ute = {0};
 
 typedef struct {
     char *str;
@@ -31,6 +36,9 @@ typedef struct {
 int read_file();
 int get_file_size(FILE *fin, size_t *size);
 void update_display();
+void print_status_line();
+
+void delete_char(Editor *ute);
 
 char *shift_args(int *argc, char ***argv);
 
@@ -44,42 +52,54 @@ int main(int argc, char **argv) {
 
     if(argc > 0) {
         ute.file_name = shift_args(&argc, &argv);
+        read_file();
     }
 
-    read_file();
+    //return 0;
+
+    //printf("%d\n", KEY_DC);
     //return 0;
 
     initscr();
     keypad(stdscr, 1);
+    raw();
     noecho();
     getmaxyx(stdscr, ute.screen_height, ute.screen_width);
 
     int ch;
+
+    //ch = getch();
+
+    //endwin();
+    //printf("%d\n", ch);
+    //return 0;
+
     update_display();
     move(ute.cy, ute.cx);
     while (1) {
         ch = getch();
 
-        if(ch == 'q') {
+        if(ch == KEY_CTRL('c'))
             break;
-        }
 
         switch (ch) {
             case KEY_DOWN:
-                if(ute.cy < ute.screen_height && ute.cy < ute.line_count-1) {
+                if(ute.cy < ute.screen_height - STATUS_LINE_SPACE - 1 && ute.cy < ute.line_count-1) {
                     ute.cy++;
-                    if(ute.cx > ute.lines[ute.cy].count) {
-                        ute.cx = ute.lines[ute.cy].count;
+                    int line_pos = ute.cy + ute.scrolly;
+                    if(ute.cx > ute.lines[line_pos].count) {
+                        ute.cx = ute.lines[line_pos].count;
                     }
-                } else if(ute.scrolly + ute.cy < ute.line_count) {
+                } else if(ute.scrolly + ute.cy < ute.line_count - 1) {
                     ute.scrolly++;
                 }
                 break;
             case KEY_UP:
                 if(ute.cy > 0) {
                     ute.cy--;
-                    if(ute.cx > ute.lines[ute.cy].count) {
-                        ute.cx = ute.lines[ute.cy].count;
+                    int line_pos = ute.cy + ute.scrolly;
+                    if(ute.cx > ute.lines[line_pos].count) {
+                        ute.cx = ute.lines[line_pos].count;
                     }
                 } else if(ute.scrolly > 0) {
                     ute.scrolly--;
@@ -87,7 +107,8 @@ int main(int argc, char **argv) {
                 break;
             case KEY_RIGHT:
                 if(ute.cx < ute.screen_width) {
-                    if(ute.line_count > ute.cy && ute.cx < ute.lines[ute.cy].count) {
+                    int line_pos = ute.cy + ute.scrolly;
+                    if(ute.line_count > line_pos && ute.cx < ute.lines[line_pos].count) {
                         ute.cx++;
                     }
                 }
@@ -99,20 +120,16 @@ int main(int argc, char **argv) {
                 break;
         }
         if(ch == 127) {
-            if(ute.cx > 0) {
-                line_del_char(&ute.lines[ute.cy], ute.cx-1);
-                ute.cx--;
-            } else if (ute.cy > 0) {
-                int old_prev_line_count = ute.lines[ute.cy-1].count;
-                line_append_line(&ute.lines[ute.cy-1], ute.lines[ute.cy]);
-                line_free(ute.lines[ute.cy]);
-                if(ute.cy < ute.line_count) {
-                    memcpy(&ute.lines[ute.cy], &ute.lines[ute.cy+1],
-                            sizeof(*ute.lines)*(ute.line_count - ute.cy));
-                }
-                ute.line_count--;
-                ute.cy--;
-                ute.cx = old_prev_line_count;
+            delete_char(&ute);
+        } else if(ch == KEY_DC){
+            int line_pos = ute.cy + ute.scrolly;
+            if(ute.cx < ute.lines[line_pos].count) {
+                ute.cx++;
+                delete_char(&ute);
+            } else if (line_pos < ute.line_count-1){
+                ute.cx = 0;
+                ute.cy++;
+                delete_char(&ute);
             }
         } else if(ch == 10) {
             if(ute.max_line_count <= 0) {
@@ -158,11 +175,10 @@ int main(int argc, char **argv) {
 }
 
 void update_display() {
-    char buffer[256] = {0};
+    char buffer[MAX_STR_SIZE] = {0};
     clear();
-    for(int i = 0; i + ute.scrolly < ute.line_count && i < ute.screen_height; i++) {
+    for(int i = 0; i + ute.scrolly < ute.line_count && i < ute.screen_height - STATUS_LINE_SPACE; i++) {
         move(i, 0);
-        memset(buffer, 0, 256);
         int line_pos = i + ute.scrolly;
         int num_display_char = ute.lines[line_pos].count < ute.screen_width ?
             ute.lines[line_pos].count : ute.screen_width;
@@ -174,7 +190,24 @@ void update_display() {
         }
     }
 
+    print_status_line();
     //refresh();
+}
+
+void print_status_line() {
+    int sline_pos = ute.screen_height - STATUS_LINE_SPACE;
+    int sline_right_start = ute.screen_width - STATUS_LINE_RIGHT_CHAR;
+    char buffer[MAX_STR_SIZE] = {0};
+    int left_len =  snprintf(buffer, MAX_STR_SIZE, "%s", ute.file_name);
+    memset(&buffer[left_len], ' ', sline_right_start - left_len);
+    int right_len = snprintf(&buffer[sline_right_start], MAX_STR_SIZE - sline_right_start, "%d,%d", ute.cy + ute.scrolly + 1, ute.cx + 1);
+    memset(&buffer[sline_right_start + right_len], ' ', ute.screen_width - right_len - sline_right_start);
+    buffer[ute.screen_width] = '\0';
+    attron(A_REVERSE);
+    move(sline_pos, 0);
+    addstr(buffer);
+    attroff(A_REVERSE);
+
 }
 
 char *shift_args(int *argc, char ***argv) {
@@ -236,4 +269,23 @@ int get_file_size(FILE *fin, size_t *size) {
     *size = end;
 
     return 1;
+}
+
+void delete_char(Editor *ute) {
+    int line_pos = ute->cy + ute->scrolly;
+    if(ute->cx > 0) {
+        line_del_char(&ute->lines[line_pos], ute->cx-1);
+        ute->cx--;
+    } else if (line_pos > 0) {
+        int old_prev_line_count = ute->lines[line_pos - 1].count;
+        line_append_line(&ute->lines[line_pos-1], ute->lines[ute->cy]);
+        line_free(ute->lines[line_pos]);
+        if(line_pos < ute->line_count) {
+            memcpy(&ute->lines[line_pos], &ute->lines[line_pos+1],
+                    sizeof(*ute->lines)*(ute->line_count - line_pos));
+        }
+        ute->line_count--;
+        ute->cy--;
+        ute->cx = old_prev_line_count;
+    }
 }
