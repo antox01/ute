@@ -1,5 +1,5 @@
 #include "line.h"
-#include <assert.h>
+//#include <assert.h>
 #include <ctype.h>
 #include <ncurses.h>
 #include <stdio.h>
@@ -11,6 +11,7 @@
 #define MAX_STR_SIZE 256
 #define STATUS_LINE_SPACE 2
 #define STATUS_LINE_RIGHT_CHAR 20
+#define TAB_TO_SPACE 4
 
 #define KEY_CTRL(x) (x & 0x1F)
 
@@ -33,8 +34,7 @@ typedef struct {
     int max_line_count;
     char *file_name;
     char cwd[MAX_STR_SIZE];
-    char command_output[MAX_STR_SIZE];
-    int command_size;
+    string_builder_t command_output;
 } Editor;
 Editor ute = {0};
 
@@ -47,8 +47,10 @@ int get_file_size(FILE *fin, size_t *size);
 void update_display();
 void print_status_line();
 void print_command_line();
+char *read_command_line(const char* msg);
 
 void delete_char(Editor *ute);
+void new_line(Editor *ute);
 
 char *shift_args(int *argc, char ***argv);
 
@@ -146,30 +148,8 @@ int main(int argc, char **argv) {
                 delete_char(&ute);
             }
         } else if(ch == 10) {
-            if(ute.max_line_count <= 0) {
-                ute.lines = malloc(sizeof(*ute.lines));
-                ute.lines[0] = line_init();
-                ute.line_count = ute.max_line_count = 1;
-            } else if(ute.line_count >= ute.max_line_count) {
-                ute.lines = realloc(ute.lines, sizeof(*ute.lines)*(ute.max_line_count+1));
-                if(ute.cy < ute.line_count) {
-                    memcpy(&ute.lines[ute.cy+2], &ute.lines[ute.cy + 1],
-                            sizeof(*ute.lines)*(ute.line_count - ute.cy -1));
-                }
-                ute.line_count++;
-                ute.max_line_count++;
-                ute.lines[ute.cy + 1] = line_init();
-            } else {
-                if(ute.cy < ute.line_count) {
-                    memcpy(&ute.lines[ute.cy+2], &ute.lines[ute.cy + 1],
-                            sizeof(*ute.lines)*(ute.line_count - ute.cy -1));
-                }
-                ute.line_count++;
-                ute.lines[ute.cy + 1] = line_init();
-            }
-            ute.cy++;
-            ute.cx = 0;
-        } else if(isalpha(ch)) {
+            new_line(&ute);
+        } else if(isalpha(ch) || isdigit(ch) || isspace(ch)) {
             if(ute.max_line_count <= 0) {
                 ute.lines = malloc(sizeof(*ute.lines));
                 ute.lines[0] = line_init();
@@ -181,8 +161,15 @@ int main(int argc, char **argv) {
                 ute.max_line_count++;
             }
 
-            line_add_char(&ute.lines[ute.cy], ch, ute.cx);
-            ute.cx++;
+            // Convert tab key to multiple spaces
+            if(ch == '\t') {
+                for(int i = 0; i < TAB_TO_SPACE; i++) {
+                    line_add_char(&ute.lines[ute.cy], ' ', ute.cx++);
+                }
+            } else {
+                line_add_char(&ute.lines[ute.cy], ch, ute.cx);
+                ute.cx++;
+            }
         }
         update_display();
         move(ute.cy, ute.cx);
@@ -237,7 +224,24 @@ void print_status_line() {
 
 void print_command_line() {
     move(ute.screen_height - 1, 0);
-    addnstr(ute.command_output, ute.command_size);
+    addnstr(ute.command_output.str, ute.command_output.count);
+}
+
+char *read_command_line(const char* msg) {
+    int start = 0;
+    char *ret = NULL;
+    ute.command_output.count = 0;
+    sb_append(&ute.command_output, msg, strlen(msg));
+    start = ute.command_output.count;
+    print_command_line();
+    int ch = getch();
+    while (ch != '\n') {
+        sb_append_char(&ute.command_output, ch);
+        print_command_line();
+        ch = getch();
+    }
+    ret = strdup(&ute.command_output.str[start]);
+    return ret;
 }
 
 char *shift_args(int *argc, char ***argv) {
@@ -297,22 +301,27 @@ defer:
 }
 
 int write_file() {
-    int ret = 0;
+    int ret = 0, buffer_size;
+    char buffer[MAX_STR_SIZE];
     ute.sb.count = 0;
     for(int i = 0; i < ute.line_count; i++) {
         sb_append(&ute.sb, ute.lines[i].data, ute.lines[i].count);
         sb_append_char(&ute.sb, '\n');
     }
 
-    assert(ute.file_name != NULL);
+    if(ute.file_name == NULL) {
+        ute.file_name = read_command_line("File name: ");
+    }
 
     FILE *fout = fopen(ute.file_name, "w");
     if(fout == NULL) ret_defer(1);
     fwrite(ute.sb.str, sizeof(*ute.sb.str), ute.sb.count, fout);
     if(ferror(fout)) ret_defer(1);
 
-    ute.command_size = snprintf(ute.command_output, MAX_STR_SIZE,
+    buffer_size = snprintf(buffer, MAX_STR_SIZE,
             "\"%s\" written %ld bytes", ute.file_name, ute.sb.count * sizeof(*ute.sb.str));
+    ute.command_output.count = 0;
+    sb_append(&ute.command_output, buffer, buffer_size);
 
 defer:
     if(fout != NULL) fclose(fout);
@@ -369,4 +378,41 @@ void sb_append_char(string_builder_t *sb, const char val) {
     sb->str[sb->count] = val;
     sb->str[sb->count + 1] = '\0';
     sb->count += 1;
+}
+
+void new_line(Editor *ute) {
+    Line line = line_init();
+    int addcy = 1;
+    if(ute->cx <= 0) {
+        ute->cy--;
+        addcy++;
+    } else if(ute->cx < ute->lines[ute->cy].count){
+        line_append(&line, &ute->lines[ute->cy].data[ute->cx], ute->lines[ute->cy].count - ute->cx);
+        ute->lines[ute->cy].data[ute->cx] = '\0';
+        ute->lines[ute->cy].count -= line.count;
+    }
+
+    if(ute->max_line_count <= 0) {
+        ute->lines = malloc(sizeof(*ute->lines));
+        ute->lines[0] = line;
+        ute->line_count = ute->max_line_count = 1;
+    } else if(ute->line_count >= ute->max_line_count) {
+        ute->lines = realloc(ute->lines, sizeof(*ute->lines)*(ute->max_line_count+1));
+        if(ute->cy < ute->line_count) {
+            memcpy(&ute->lines[ute->cy+2], &ute->lines[ute->cy + 1],
+                    sizeof(*ute->lines)*(ute->line_count - ute->cy -1));
+        }
+        ute->line_count++;
+        ute->max_line_count++;
+        ute->lines[ute->cy + 1] = line;
+    } else {
+        if(ute->cy < ute->line_count) {
+            memcpy(&ute->lines[ute->cy+2], &ute->lines[ute->cy + 1],
+                    sizeof(*ute->lines)*(ute->line_count - ute->cy -1));
+        }
+        ute->line_count++;
+        ute->lines[ute->cy + 1] = line;
+    }
+    ute->cy+=addcy;
+    ute->cx = 0;
 }
