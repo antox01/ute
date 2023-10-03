@@ -44,6 +44,7 @@ void sb_append_char(string_builder_t *sb, const char val);
 int read_file();
 int write_file();
 int get_file_size(FILE *fin, size_t *size);
+int manage_key(int ch);
 void update_display();
 void print_status_line();
 void print_command_line();
@@ -78,105 +79,115 @@ int main(int argc, char **argv) {
     noecho();
     getmaxyx(stdscr, ute.screen_height, ute.screen_width);
 
-    int ch;
+    int ch, stop = 0;
 
     //ch = getch();
 
     //endwin();
-    //printf("%d\n", ch);
+    //printf("%d\n", KEY_RESIZE);
     //return 0;
 
     update_display();
     move(ute.cy, ute.cx);
-    while (1) {
+    while (!stop) {
         ch = getch();
 
-        if(ch == KEY_CTRL('c'))
-            break;
+        stop = manage_key(ch);
 
-        if(ch == KEY_CTRL('s')) {
-            write_file();
-        }
-
-        switch (ch) {
-            case KEY_DOWN:
-                if(ute.cy < ute.screen_height - STATUS_LINE_SPACE - 1 && ute.cy < ute.line_count-1) {
-                    ute.cy++;
-                    int line_pos = ute.cy + ute.scrolly;
-                    if(ute.cx > ute.lines[line_pos].count) {
-                        ute.cx = ute.lines[line_pos].count;
-                    }
-                } else if(ute.scrolly + ute.cy < ute.line_count - 1) {
-                    ute.scrolly++;
-                }
-                break;
-            case KEY_UP:
-                if(ute.cy > 0) {
-                    ute.cy--;
-                    int line_pos = ute.cy + ute.scrolly;
-                    if(ute.cx > ute.lines[line_pos].count) {
-                        ute.cx = ute.lines[line_pos].count;
-                    }
-                } else if(ute.scrolly > 0) {
-                    ute.scrolly--;
-                }
-                break;
-            case KEY_RIGHT:
-                if(ute.cx < ute.screen_width) {
-                    int line_pos = ute.cy + ute.scrolly;
-                    if(ute.line_count > line_pos && ute.cx < ute.lines[line_pos].count) {
-                        ute.cx++;
-                    }
-                }
-                break;
-            case KEY_LEFT:
-                if(ute.cx > 0) {
-                    ute.cx--;
-                }
-                break;
-        }
-        if(ch == 127) {
-            delete_char(&ute);
-        } else if(ch == KEY_DC){
-            int line_pos = ute.cy + ute.scrolly;
-            if(ute.cx < ute.lines[line_pos].count) {
-                ute.cx++;
-                delete_char(&ute);
-            } else if (line_pos < ute.line_count-1){
-                ute.cx = 0;
-                ute.cy++;
-                delete_char(&ute);
-            }
-        } else if(ch == 10) {
-            new_line(&ute);
-        } else if(isalpha(ch) || isdigit(ch) || isspace(ch)) {
-            if(ute.max_line_count <= 0) {
-                ute.lines = malloc(sizeof(*ute.lines));
-                ute.lines[0] = line_init();
-                ute.line_count = ute.max_line_count = 1;
-            } else if(ute.line_count <= ute.cy) {
-                ute.lines = realloc(ute.lines, sizeof(*ute.lines)*(ute.max_line_count+1));
-                ute.lines[ute.line_count] = line_init();
-                ute.line_count++;
-                ute.max_line_count++;
-            }
-
-            // Convert tab key to multiple spaces
-            if(ch == '\t') {
-                for(int i = 0; i < TAB_TO_SPACE; i++) {
-                    line_add_char(&ute.lines[ute.cy], ' ', ute.cx++);
-                }
-            } else {
-                line_add_char(&ute.lines[ute.cy], ch, ute.cx);
-                ute.cx++;
-            }
-        }
         update_display();
         move(ute.cy, ute.cx);
     }
     endwin();
     //printf("%d\n", KEY_BACKSPACE);
     //printf("%d\n", ch_save);
+    return 0;
+}
+
+int manage_key(int ch) {
+    if(ch == KEY_CTRL('c'))
+        return 1;
+
+    if(ch == KEY_CTRL('s')) {
+        write_file();
+    }
+
+    if(ch == KEY_RESIZE) {
+        getmaxyx(stdscr, ute.screen_height, ute.screen_width);
+    }
+
+    switch (ch) {
+        case KEY_DOWN:
+            if(ute.cy < ute.screen_height - STATUS_LINE_SPACE - 1 && ute.cy < ute.line_count-1) {
+                ute.cy++;
+                int line_pos = ute.cy + ute.scrolly;
+                if(ute.cx > ute.lines[line_pos].count) {
+                    ute.cx = ute.lines[line_pos].count;
+                }
+            } else if(ute.scrolly + ute.cy < ute.line_count - 1) {
+                ute.scrolly++;
+            }
+            break;
+        case KEY_UP:
+            if(ute.cy > 0) {
+                ute.cy--;
+                int line_pos = ute.cy + ute.scrolly;
+                if(ute.cx > ute.lines[line_pos].count) {
+                    ute.cx = ute.lines[line_pos].count;
+                }
+            } else if(ute.scrolly > 0) {
+                ute.scrolly--;
+            }
+            break;
+        case KEY_RIGHT:
+            if(ute.cx < ute.screen_width) {
+                int line_pos = ute.cy + ute.scrolly;
+                if(ute.line_count > line_pos && ute.cx < ute.lines[line_pos].count) {
+                    ute.cx++;
+                }
+            }
+            break;
+        case KEY_LEFT:
+            if(ute.cx > 0) {
+                ute.cx--;
+            }
+            break;
+    }
+    if(ch == 127) {
+        delete_char(&ute);
+    } else if(ch == KEY_DC){
+        int line_pos = ute.cy + ute.scrolly;
+        if(ute.cx < ute.lines[line_pos].count) {
+            ute.cx++;
+            delete_char(&ute);
+        } else if (line_pos < ute.line_count-1){
+            ute.cx = 0;
+            ute.cy++;
+            delete_char(&ute);
+        }
+    } else if(ch == 10) {
+        new_line(&ute);
+    } else if(isalpha(ch) || isdigit(ch) || isspace(ch)) {
+        if(ute.max_line_count <= 0) {
+            ute.lines = malloc(sizeof(*ute.lines));
+            ute.lines[0] = line_init();
+            ute.line_count = ute.max_line_count = 1;
+        } else if(ute.line_count <= ute.cy) {
+            ute.lines = realloc(ute.lines, sizeof(*ute.lines)*(ute.max_line_count+1));
+            ute.lines[ute.line_count] = line_init();
+            ute.line_count++;
+            ute.max_line_count++;
+        }
+
+        // Convert tab key to multiple spaces
+        if(ch == '\t') {
+            for(int i = 0; i < TAB_TO_SPACE; i++) {
+                line_add_char(&ute.lines[ute.cy], ' ', ute.cx++);
+            }
+        } else {
+            line_add_char(&ute.lines[ute.cy], ch, ute.cx);
+            ute.cx++;
+        }
+    }
     return 0;
 }
 
