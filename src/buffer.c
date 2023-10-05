@@ -1,11 +1,12 @@
+#include <ctype.h>
 #include <stdlib.h>
 
 #include "buffer.h"
+#include "line.h"
 
-Buffer buffer_init(int width, int height) {
+Buffer buffer_init() {
     Buffer buffer = {0};
-    buffer.width = width;
-    buffer.height = height;
+    buffer.lines = lines_init();
     return buffer;
 }
 
@@ -58,4 +59,18 @@ void buffer_backward(Buffer *buffer) {
     if(buffer->cx > 0) {
         buffer->cx--;
     }
+}
+
+void buffer_forward_word(Buffer *buffer) {
+    char current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
+    while (isalpha(current_char)) {
+        buffer_forward(buffer);
+    }
+    while (isspace(current_char)) {
+        buffer_forward(buffer);
+    }
+}
+
+void buffer_add_char_cl(Buffer *buffer, char ch) {
+    line_add_char(&buffer->lines.data[buffer->cy + buffer->scrolly], ch, buffer->cx++);
 }
