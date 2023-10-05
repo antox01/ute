@@ -59,3 +59,14 @@ void line_del_char(Line *line, int pos) {
     memcpy(&line->data[pos], &line->data[pos+1], line->count - pos);
     line->count--;
 }
+
+Lines lines_init() {
+    Lines lines = {0};
+    return lines;
+}
+
+void lines_free(Lines lines) {
+    if (lines.max_size > 0) {
+        free(lines.data);
+    }
+}
