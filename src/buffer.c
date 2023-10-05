@@ -7,6 +7,7 @@
 Buffer buffer_init() {
     Buffer buffer = {0};
     buffer.lines = lines_init();
+    buffer.saved = 1;
     return buffer;
 }
 
@@ -65,10 +66,42 @@ void buffer_forward_word(Buffer *buffer) {
     char current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
     while (isalpha(current_char)) {
         buffer_forward(buffer);
+        current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
     }
+space_skip:
     while (isspace(current_char)) {
         buffer_forward(buffer);
+        current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
     }
+    if (current_char == '\0') {
+        buffer_next_line(buffer);
+        buffer->cx = 0;
+        current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
+        goto space_skip;
+    }
+}
+
+void buffer_backward_word(Buffer *buffer) {
+    char current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
+    if (buffer->cx == 0) {
+        buffer_prev_line(buffer);
+        buffer->cx = buffer->lines.data[buffer->cy].count;
+    }
+    buffer->cx--;
+    while (isspace(current_char)) {
+        buffer_backward(buffer);
+        current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
+    }
+
+    while (isalpha(current_char)) {
+        buffer_backward(buffer);
+        current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
+        if(buffer->cx == 0) {
+            buffer->cx--;
+            break;
+        }
+    }
+    buffer->cx++;
 }
 
 void buffer_add_char_cl(Buffer *buffer, char ch) {

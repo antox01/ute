@@ -10,6 +10,7 @@ typedef struct buffer_s {
     int width, height;
     Lines lines;
     char *file_name;
+    int saved;
 } Buffer;
 
 ute_da(Buffer, Buffers);
@@ -23,6 +24,7 @@ void buffer_next_line(Buffer *buffer);
 void buffer_forward(Buffer *buffer);
 void buffer_backward(Buffer *buffer);
 void buffer_forward_word(Buffer *buffer);
+void buffer_backward_word(Buffer *buffer);
 
 void buffer_add_char_cl(Buffer *buffer, char ch);
 

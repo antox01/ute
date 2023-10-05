@@ -1,4 +1,3 @@
-#include <ctype.h>
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +15,8 @@
 #define TAB_TO_SPACE 4
 
 #define KEY_CTRL(x) (x & 0x1F)
+
+#define is_printable(x) (0x20 <= x && x <= 0xFF)
 
 ute_da(char, string_builder_t)
 
@@ -85,8 +86,9 @@ int main(int argc, char **argv) {
 
     //endwin();
     //printf("%d\n", ch);
+    //printf("%d\n", KEY_CTRL('f'));
     //printf("%d\n", ch2);
-    ////printf("%d\n", ch3);
+    //printf("%d\n", ch3);
     //return 0;
 
     update_display();
@@ -111,6 +113,23 @@ int manage_key(int ch) {
 
     if(ch == KEY_CTRL('s')) {
         write_file();
+        ute.buffer.saved = 1;
+    }
+
+    if(ch == KEY_CTRL('f')) {
+        buffer_forward_word(&ute.buffer);
+    }
+    if(ch == KEY_CTRL('b')) {
+        buffer_backward_word(&ute.buffer);
+    }
+
+    if(ch == 10) {
+        new_line(&ute);
+    } 
+
+    if(KEY_CTRL('a') <= ch && ch <= KEY_CTRL('z')) {
+        //TODO: manage all ctrl keybinding
+        return 0;
     }
 
     if(ch == KEY_RESIZE) {
@@ -119,42 +138,15 @@ int manage_key(int ch) {
 
     switch (ch) {
         case KEY_DOWN:
-            //if(ute.cy < ute.screen_height - STATUS_LINE_SPACE - 1 && ute.cy < ute.line_count-1) {
-            //    ute.cy++;
-            //    int line_pos = ute.cy + ute.scrolly;
-            //    if(ute.cx > ute.lines[line_pos].count) {
-            //        ute.cx = ute.lines[line_pos].count;
-            //    }
-            //} else if(ute.scrolly + ute.cy < ute.line_count - 1) {
-            //    ute.scrolly++;
-            //}
             buffer_next_line(&ute.buffer);
             break;
         case KEY_UP:
-            //if(ute.cy > 0) {
-            //    ute.cy--;
-            //    int line_pos = ute.cy + ute.scrolly;
-            //    if(ute.cx > ute.lines[line_pos].count) {
-            //        ute.cx = ute.lines[line_pos].count;
-            //    }
-            //} else if(ute.scrolly > 0) {
-            //    ute.scrolly--;
-            //}
             buffer_prev_line(&ute.buffer);
             break;
         case KEY_RIGHT:
-            //if(ute.cx < ute.screen_width) {
-            //    int line_pos = ute.cy + ute.scrolly;
-            //    if(ute.line_count > line_pos && ute.cx < ute.lines[line_pos].count) {
-            //        ute.cx++;
-            //    }
-            //}
             buffer_forward(&ute.buffer);
             break;
         case KEY_LEFT:
-            //if(ute.cx > 0) {
-            //    ute.cx--;
-            //}
             buffer_backward(&ute.buffer);
             break;
     }
@@ -170,19 +162,9 @@ int manage_key(int ch) {
             ute.buffer.cy++;
             delete_char(&ute);
         }
-    } else if(ch == 10) {
-        new_line(&ute);
-    } else if(isalpha(ch) || isdigit(ch) || isspace(ch)) {
+    } else if(is_printable(ch)) {
         if(ute.buffer.lines.max_size <= 0) {
-            //ute.lines = malloc(sizeof(*ute.lines));
-            //ute.lines[0] = line_init();
-            //ute.line_count = ute.buffer.lines.max_size = 1;
             ute_da_append(&ute.buffer.lines, line_init());
-        //} else if(ute.line_count <= ute.cy) {
-        //    ute.lines = realloc(ute.lines, sizeof(*ute.lines)*(ute.buffer.lines.max_size+1));
-        //    ute.lines[ute.line_count] = line_init();
-        //    ute.line_count++;
-        //    ute.buffer.lines.max_size++;
         }
 
         // Convert tab key to multiple spaces
@@ -196,6 +178,7 @@ int manage_key(int ch) {
             //ute.cx++;
             buffer_add_char_cl(&ute.buffer, ch);
         }
+        ute.buffer.saved = 0;
     }
     return 0;
 }
@@ -230,6 +213,9 @@ void print_status_line() {
         left_len = snprintf(buffer, MAX_STR_SIZE, "%s", "[New File]");
     } else {
         left_len =  snprintf(buffer, MAX_STR_SIZE, "%s", ute.buffer.file_name);
+        if (!ute.buffer.saved) {
+            left_len += snprintf(&buffer[left_len], MAX_STR_SIZE - left_len, " [+]");
+        }
     }
     memset(&buffer[left_len], ' ', sline_right_start - left_len);
     int right_len = snprintf(&buffer[sline_right_start], MAX_STR_SIZE - sline_right_start,
