@@ -1,4 +1,3 @@
-#include "line.h"
 //#include <assert.h>
 #include <ctype.h>
 #include <ncurses.h>
@@ -7,6 +6,9 @@
 #include <string.h>
 
 #include <unistd.h>
+
+#include "common.h"
+#include "line.h"
 
 #define MAX_STR_SIZE 256
 #define STATUS_LINE_SPACE 2
@@ -17,18 +19,20 @@
 
 #define ret_defer(x) do { ret = x; goto defer; } while(0)
 
-typedef struct {
-    char *str;
-    size_t count;
-    size_t max_length;
-} string_builder_t;
+//typedef struct {
+//    char *str;
+//    size_t count;
+//    size_t max_size;
+//} string_builder_t;
+
+ute_da(char, string_builder_t)
 
 
 typedef struct {
     int cx, cy;
     int scrolly;
     int screen_width, screen_height;
-    string_builder_t sb;
+    string_builder_t sb; // Buffer to use when saving the file on the disk
     Line *lines;
     int line_count;
     int max_line_count;
@@ -82,9 +86,14 @@ int main(int argc, char **argv) {
     int ch, stop = 0;
 
     //ch = getch();
+    //int ch2;
+    //ch2 = getch();
+    ////ch3 = getch();
 
     //endwin();
-    //printf("%d\n", KEY_RESIZE);
+    //printf("%d\n", ch);
+    //printf("%d\n", ch2);
+    ////printf("%d\n", ch3);
     //return 0;
 
     update_display();
@@ -171,11 +180,11 @@ int manage_key(int ch) {
             ute.lines = malloc(sizeof(*ute.lines));
             ute.lines[0] = line_init();
             ute.line_count = ute.max_line_count = 1;
-        } else if(ute.line_count <= ute.cy) {
-            ute.lines = realloc(ute.lines, sizeof(*ute.lines)*(ute.max_line_count+1));
-            ute.lines[ute.line_count] = line_init();
-            ute.line_count++;
-            ute.max_line_count++;
+        //} else if(ute.line_count <= ute.cy) {
+        //    ute.lines = realloc(ute.lines, sizeof(*ute.lines)*(ute.max_line_count+1));
+        //    ute.lines[ute.line_count] = line_init();
+        //    ute.line_count++;
+        //    ute.max_line_count++;
         }
 
         // Convert tab key to multiple spaces
@@ -235,7 +244,7 @@ void print_status_line() {
 
 void print_command_line() {
     move(ute.screen_height - 1, 0);
-    addnstr(ute.command_output.str, ute.command_output.count);
+    addnstr(ute.command_output.data, ute.command_output.count);
 }
 
 char *read_command_line(const char* msg) {
@@ -251,7 +260,7 @@ char *read_command_line(const char* msg) {
         print_command_line();
         ch = getch();
     }
-    ret = strdup(&ute.command_output.str[start]);
+    ret = strdup(&ute.command_output.data[start]);
     return ret;
 }
 
@@ -266,26 +275,26 @@ int read_file() {
     size_t file_size, line_number;
     int ret = 1;
 
-    if(ute.sb.max_length > 0) {
-        free(ute.sb.str);
+    if(ute.sb.max_size > 0) {
+        free(ute.sb.data);
         ute.sb.count = 0;
-        ute.sb.max_length = 0;
+        ute.sb.max_size = 0;
     }
 
     FILE *fin = fopen(ute.file_name, "r");
 
     if(!get_file_size(fin, &file_size)) ret_defer(0);
 
-    ute.sb.str = malloc(file_size * sizeof(*ute.sb.str));
-    ute.sb.max_length = file_size;
-    fread(ute.sb.str, sizeof(*ute.sb.str), file_size, fin);
+    ute.sb.data = malloc(file_size * sizeof(*ute.sb.data));
+    ute.sb.max_size = file_size;
+    fread(ute.sb.data, sizeof(*ute.sb.data), file_size, fin);
     ute.sb.count = file_size;
 
     // set line_number to 1 because there is at least a line in the file
     line_number = 0;
 
     for(int i = 0; i < file_size; i++) {
-        if(ute.sb.str[i] == '\n') line_number++;
+        if(ute.sb.data[i] == '\n') line_number++;
     }
 
     if(ute.max_line_count <= 0) {
@@ -295,9 +304,9 @@ int read_file() {
 
     int cur_row = 0, count_line = 0;
     for(int i = 0; i < file_size; i++) {
-        if(ute.sb.str[i] == '\n') {
+        if(ute.sb.data[i] == '\n') {
             ute.lines[count_line] = line_init();
-            line_append(&ute.lines[count_line], &ute.sb.str[cur_row], i - cur_row);
+            line_append(&ute.lines[count_line], &ute.sb.data[cur_row], i - cur_row);
             ute.lines[count_line].data[i-cur_row] = '\0';
             ute.line_count++;
             cur_row = i+1;
@@ -306,7 +315,7 @@ int read_file() {
     }
 
 defer:
-    //free(sb.str);
+    //free(sb.data);
     fclose(fin);
     return ret;
 }
@@ -326,11 +335,11 @@ int write_file() {
 
     FILE *fout = fopen(ute.file_name, "w");
     if(fout == NULL) ret_defer(1);
-    fwrite(ute.sb.str, sizeof(*ute.sb.str), ute.sb.count, fout);
+    fwrite(ute.sb.data, sizeof(*ute.sb.data), ute.sb.count, fout);
     if(ferror(fout)) ret_defer(1);
 
     buffer_size = snprintf(buffer, MAX_STR_SIZE,
-            "\"%s\" written %ld bytes", ute.file_name, ute.sb.count * sizeof(*ute.sb.str));
+            "\"%s\" written %ld bytes", ute.file_name, ute.sb.count * sizeof(*ute.sb.data));
     ute.command_output.count = 0;
     sb_append(&ute.command_output, buffer, buffer_size);
 
@@ -370,24 +379,24 @@ void delete_char(Editor *ute) {
 }
 
 void sb_append(string_builder_t *sb, const char *str, size_t str_len) {
-    if(sb->count + str_len >= sb->max_length) {
+    if(sb->count + str_len >= sb->max_size) {
         size_t new_size = sb->count + str_len + 1;
-        sb->str = realloc(sb->str, new_size * sizeof(*sb->str));
-        sb->max_length = new_size;
+        sb->data = realloc(sb->data, new_size * sizeof(*sb->data));
+        sb->max_size = new_size;
     }
-    memcpy(&sb->str[sb->count], str, (str_len + 1) * sizeof(*str));
+    memcpy(&sb->data[sb->count], str, (str_len + 1) * sizeof(*str));
     sb->count += str_len;
 }
 
 void sb_append_char(string_builder_t *sb, const char val) {
-    if(sb->count + 1 >= sb->max_length) {
+    if(sb->count + 1 >= sb->max_size) {
         size_t new_size = sb->count + 2;
-        sb->str = realloc(sb->str, new_size * sizeof(*sb->str));
-        sb->max_length = new_size;
+        sb->data = realloc(sb->data, new_size * sizeof(*sb->data));
+        sb->max_size = new_size;
     }
-    //memcpy(&sb->str[sb->count], str, (str_len + 1) * sizeof(*str));
-    sb->str[sb->count] = val;
-    sb->str[sb->count + 1] = '\0';
+    //memcpy(&sb->data[sb->count], str, (str_len + 1) * sizeof(*str));
+    sb->data[sb->count] = val;
+    sb->data[sb->count + 1] = '\0';
     sb->count += 1;
 }
 
