@@ -4,10 +4,12 @@
 #include "buffer.h"
 #include "line.h"
 
-Buffer buffer_init() {
+Buffer buffer_init(int width, int height) {
     Buffer buffer = {0};
     buffer.lines = lines_init();
     buffer.saved = 1;
+    buffer.width = width;
+    buffer.height = height;
     return buffer;
 }
 

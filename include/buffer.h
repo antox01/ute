@@ -16,7 +16,7 @@ typedef struct buffer_s {
 ute_da(Buffer, Buffers);
 
 
-Buffer buffer_init();
+Buffer buffer_init(int width, int height);
 void buffer_free(Buffer buffer);
 
 void buffer_prev_line(Buffer *buffer);
