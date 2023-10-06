@@ -268,16 +268,21 @@ char *read_command_line(const char* msg) {
     print_command_line();
     int ch = getch();
     while (ch != '\n' && ch != KEY_CTRL('c')) {
-        if(ch == 127)
-            ute.command_output.count -= 1;
-        sb_append_char(&ute.command_output, ch);
+        if(ch == 127) {
+            if(ute.command_output.count > start) {
+                ute.command_output.count -= 1;
+                ute.command_output.data[ute.command_output.count] ='\0';
+            }
+        } else {
+            sb_append_char(&ute.command_output, ch);
+        }
         print_command_line();
         ch = getch();
     }
     if(ch != KEY_CTRL('c')) {
         ret = strdup(&ute.command_output.data[start]);
     } else {
-        ute.command_output.count = start;
+        ute.command_output.count = 0;
     }
     return ret;
 }
