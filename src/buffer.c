@@ -22,6 +22,16 @@ void buffer_free(Buffer buffer) {
     }
 }
 
+void buffer_set_size(Buffer *buffer, int width, int height) {
+    buffer->width = width;
+    buffer->height = height;
+    if (buffer->cx > buffer->width) {
+        buffer->cx = buffer->width-1;
+    }
+    if (buffer->cy > buffer->height) {
+        buffer->cy = buffer->height-1;
+    }
+}
 
 void buffer_prev_line(Buffer *buffer) {
     if(buffer->cy > 0) {
@@ -64,6 +74,10 @@ void buffer_backward(Buffer *buffer) {
     }
 }
 
+/* Move forward of a word.
+ * A word is the next alphabetichal character that is not included in the starting
+ * word.
+ */
 void buffer_forward_word(Buffer *buffer) {
     char current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
     while (isalpha(current_char)) {
@@ -71,7 +85,7 @@ void buffer_forward_word(Buffer *buffer) {
         current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
     }
 space_skip:
-    while (isspace(current_char)) {
+    while (isspace(current_char) || (isprint(current_char) && !isalpha(current_char))) {
         buffer_forward(buffer);
         current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
     }
@@ -84,13 +98,16 @@ space_skip:
 }
 
 void buffer_backward_word(Buffer *buffer) {
-    char current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
+    if (buffer->cy == 0 && buffer->cx == 0) {
+        return;
+    }
     if (buffer->cx == 0) {
         buffer_prev_line(buffer);
         buffer->cx = buffer->lines.data[buffer->cy].count;
     }
     buffer->cx--;
-    while (isspace(current_char)) {
+    char current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
+    while (isspace(current_char) || (isprint(current_char) && !isalpha(current_char))) {
         buffer_backward(buffer);
         current_char = buffer->lines.data[buffer->cy].data[buffer->cx];
     }

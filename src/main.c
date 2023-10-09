@@ -157,6 +157,7 @@ int manage_key(int ch) {
 
     if(ch == KEY_RESIZE) {
         getmaxyx(stdscr, ute.screen_height, ute.screen_width);
+        buffer_set_size(buffer, ute.screen_width, ute.screen_height - STATUS_LINE_SPACE);
     }
 
     switch (ch) {

@@ -19,6 +19,8 @@ ute_da(Buffer, Buffers);
 Buffer buffer_init(int width, int height);
 void buffer_free(Buffer buffer);
 
+void buffer_set_size(Buffer *buffer, int width, int height);
+
 void buffer_prev_line(Buffer *buffer);
 void buffer_next_line(Buffer *buffer);
 void buffer_forward(Buffer *buffer);
