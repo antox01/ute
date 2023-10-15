@@ -148,6 +148,7 @@ int manage_key(int ch) {
 
     if(ch == 10) {
         new_line(&ute);
+        buffer->saved = 0;
     } 
 
     if(KEY_CTRL('a') <= ch && ch <= KEY_CTRL('z')) {
@@ -176,6 +177,7 @@ int manage_key(int ch) {
     }
     if(ch == 127) {
         delete_char(&ute);
+        buffer->saved = 0;
     } else if(ch == KEY_DC){
         int line_pos = buffer->cy + buffer->scrolly;
         if(buffer->cx < buffer->lines.data[line_pos].count) {
@@ -186,6 +188,7 @@ int manage_key(int ch) {
             buffer->cy++;
             delete_char(&ute);
         }
+        buffer->saved = 0;
     } else if(is_printable(ch)) {
         if(buffer->lines.max_size <= 0) {
             ute_da_append(&buffer->lines, line_init());
@@ -401,7 +404,7 @@ void delete_char(Editor *ute) {
         line_append_line(&buffer->lines.data[line_pos-1], buffer->lines.data[buffer->cy]);
         line_free(buffer->lines.data[line_pos]);
         if(line_pos < buffer->lines.count) {
-            memcpy(&buffer->lines.data[line_pos], &buffer->lines.data[line_pos+1],
+            memmove(&buffer->lines.data[line_pos], &buffer->lines.data[line_pos+1],
                     sizeof(*buffer->lines.data)*(buffer->lines.count - line_pos));
         }
         buffer->lines.count--;
@@ -450,7 +453,7 @@ void new_line(Editor *ute) {
     } else if(buffer->lines.count >= buffer->lines.max_size) {
         buffer->lines.data = realloc(buffer->lines.data, sizeof(*buffer->lines.data)*(buffer->lines.max_size+1));
         if(buffer->cy < buffer->lines.count) {
-            memcpy(&buffer->lines.data[buffer->cy+2], &buffer->lines.data[buffer->cy + 1],
+            memmove(&buffer->lines.data[buffer->cy+2], &buffer->lines.data[buffer->cy + 1],
                     sizeof(*buffer->lines.data)*(buffer->lines.count - buffer->cy -1));
         }
         buffer->lines.count++;
@@ -458,7 +461,7 @@ void new_line(Editor *ute) {
         buffer->lines.data[buffer->cy + 1] = line;
     } else {
         if(buffer->cy < buffer->lines.count) {
-            memcpy(&buffer->lines.data[buffer->cy+2], &buffer->lines.data[buffer->cy + 1],
+            memmove(&buffer->lines.data[buffer->cy+2], &buffer->lines.data[buffer->cy + 1],
                     sizeof(*buffer->lines.data)*(buffer->lines.count - buffer->cy -1));
         }
         buffer->lines.count++;

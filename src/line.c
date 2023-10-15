@@ -46,7 +46,7 @@ void line_add_char(Line *line, char ch, int pos) {
         line->max_size = max_size;
     }
 
-    memcpy(&line->data[pos+1], &line->data[pos], (line->count - pos + 1) * sizeof(char));
+    memmove(&line->data[pos+1], &line->data[pos], (line->count - pos + 1) * sizeof(char));
     line->data[pos] = ch;
     line->count++;
 }
@@ -56,7 +56,7 @@ void line_append_line(Line *dst, Line src) {
 }
 
 void line_del_char(Line *line, int pos) {
-    memcpy(&line->data[pos], &line->data[pos+1], line->count - pos);
+    memmove(&line->data[pos], &line->data[pos+1], line->count - pos);
     line->count--;
 }
 
