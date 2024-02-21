@@ -4,30 +4,43 @@
 #include "line.h"
 #include "common.h"
 
-typedef struct buffer_s {
+#define BUF_CAPACITY 1024
+
+typedef struct buffer_s_ {
+    char *data;
+    int capacity;
+    int cursor;
+    int gap_end;
     int cx, cy;
     int scrolly;
-    int width, height;
-    Lines lines;
-    char *file_name;
     int saved;
 } Buffer;
+
+
 
 ute_da(Buffer, Buffers);
 
 
-Buffer buffer_init(int width, int height);
-void buffer_free(Buffer buffer);
+/* Buffer buffer_init(int width, int height); */
+/* void buffer_free(Buffer buffer); */
 
-void buffer_set_size(Buffer *buffer, int width, int height);
+/* void buffer_set_size(Buffer *buffer, int width, int height); */
+Buffer buffer_init(int size);
+void buffer_free(Buffer *gb);
+
 
 void buffer_prev_line(Buffer *buffer);
 void buffer_next_line(Buffer *buffer);
-void buffer_forward(Buffer *buffer);
-void buffer_backward(Buffer *buffer);
+/* void buffer_forward(Buffer *buffer); */
+/* void buffer_backward(Buffer *buffer); */
 void buffer_forward_word(Buffer *buffer);
 void buffer_backward_word(Buffer *buffer);
-
-void buffer_add_char_cl(Buffer *buffer, char ch);
+void buffer_right(Buffer *gb);
+void buffer_left(Buffer *gb);
+void buffer_insert(Buffer *gb, char c);
+void buffer_insert_str(Buffer *gb, char *str);
+/* void buffer_add_char_cl(Buffer_ *buffer, char ch); */
+int buffer_size(Buffer *gb);
+char* buffer_str(Buffer *gb);
 
 #endif//BUFFER_H_DEF

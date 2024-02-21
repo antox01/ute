@@ -5,6 +5,7 @@
 
 #define ret_defer(x) do { ret = x; goto defer; } while(0)
 
+#define max(x,y) (x) > (y) ? (x) : (y)
 
 /* ute_da_append:
  * Macro to append an element to a dynamic array.
