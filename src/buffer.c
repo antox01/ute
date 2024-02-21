@@ -4,7 +4,6 @@
 #include <assert.h>
 
 #include "buffer.h"
-#include "line.h"
 
 Buffer buffer_init(int size) {
     Buffer buf = {0};
@@ -43,8 +42,7 @@ void buffer_insert(Buffer *gb, char c) {
     gb->cursor++;
 }
 
-void buffer_insert_str(Buffer *gb, char* str) {
-    int str_size = strlen(str);
+void buffer_insert_str(Buffer *gb, char* str, int str_size) {
     for(int i = 0; i < str_size; i++) {
 	buffer_insert(gb, str[i]);
     }
@@ -135,4 +133,17 @@ void buffer_backward_word(Buffer *buffer) {
 /*         } */
 /*     } */
 /*     buffer->cx++; */
+}
+
+void buffer_cyx(Buffer *gb, int *cy, int *cx) {
+    int line = 0, start = 0;
+    for(int i = 0; i < gb->cursor; i++) {
+	if(gb->data[i] == '\n') {
+	    line++;
+	    start = i+1;
+	}
+    }
+
+    *cy = line;
+    *cx = gb->cursor - start;
 }

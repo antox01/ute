@@ -1,7 +1,6 @@
 #ifndef BUFFER_H_DEF
 #define BUFFER_H_DEF
 
-#include "line.h"
 #include "common.h"
 
 #define BUF_CAPACITY 1024
@@ -14,6 +13,7 @@ typedef struct buffer_s_ {
     int cx, cy;
     int scrolly;
     int saved;
+    char *file_name;
 } Buffer;
 
 
@@ -37,10 +37,13 @@ void buffer_forward_word(Buffer *buffer);
 void buffer_backward_word(Buffer *buffer);
 void buffer_right(Buffer *gb);
 void buffer_left(Buffer *gb);
+void buffer_remove(Buffer *gb);
 void buffer_insert(Buffer *gb, char c);
-void buffer_insert_str(Buffer *gb, char *str);
+void buffer_insert_str(Buffer *gb, char *str, int size);
 /* void buffer_add_char_cl(Buffer_ *buffer, char ch); */
 int buffer_size(Buffer *gb);
 char* buffer_str(Buffer *gb);
+
+void buffer_cyx(Buffer *gb, int *cy, int *cx);
 
 #endif//BUFFER_H_DEF

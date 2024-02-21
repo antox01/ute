@@ -8,7 +8,6 @@
 
 #include "buffer.h"
 #include "common.h"
-#include "line.h"
 
 #define MAX_STR_SIZE 256
 #define STATUS_LINE_SPACE 2
@@ -28,8 +27,8 @@ typedef struct {
     int screen_width, screen_height;
     int curr_buffer;
     string_builder_t sb; // Buffer to use when saving the file on the disk
-    //Buffer buffer;
-    Buffers buffers;
+    Buffer buffer;
+    //Buffers buffers;
     char cwd[MAX_STR_SIZE];
     string_builder_t command_output;
 } Editor;
@@ -38,7 +37,7 @@ typedef struct {
 void sb_append(string_builder_t *sb, const char *str, size_t str_len);
 void sb_append_char(string_builder_t *sb, const char val);
 
-int read_file(Buffer_ *buffer, string_builder_t *sb);
+int read_file(Buffer *buffer, string_builder_t *sb);
 int write_file();
 int open_file(Editor *ute, char *file_name);
 int get_file_size(FILE *fin, size_t *size);
@@ -50,7 +49,7 @@ char *read_command_line(Editor *ute, const char* msg);
 
 void delete_char(Editor *ute);
 
-Buffer_ *current_buffer(Editor *ute);
+Buffer *current_buffer(Editor *ute);
 void buffers_next(Editor *ute);
 void buffers_prev(Editor *ute);
 
@@ -81,11 +80,11 @@ int main(int argc, char **argv) {
     if(argc > 0) {
         open_file(&ute, strdup(shift_args(&argc, &argv)));
     } else {
-        ute_da_append(&ute.buffers,
-                buffer_init(0));
+        /* ute_da_append(&ute.buffers, buffer_init(0)); */
+	ute.buffer = buffer_init(0);
     }
 
-    Buffer_ *buffer = current_buffer(&ute);
+    Buffer *buffer = current_buffer(&ute);
 
     //buffer->width = ute.screen_width;
     //buffer->height = ute.screen_height - STATUS_LINE_SPACE;
@@ -105,16 +104,23 @@ int main(int argc, char **argv) {
     //return 0;
 
     update_display(&ute);
-    assert(0 && "TODO: unhandled move");
-    move(buffer->cy, buffer->cx);
+    /* assert(0 && "TODO: unhandled move"); */
+    /* move(buffer->cy, buffer->cx); */
+
+    int cx, cy;
+    buffer_cyx(buffer, &cy, &cx);
+    move(cy, cx);
     while (!stop) {
         ch = getch();
-
+	
         stop = manage_key(&ute, ch);
-
+	//stop = 1;
         buffer = current_buffer(&ute);
         update_display(&ute);
-        move(buffer->cy, buffer->cx);
+	buffer_cyx(buffer, &cy, &cx);
+	move(cy, cx);
+    
+        /* move(buffer->cy, buffer->cx); */
     }
     endwin();
     //printf("%d\n", KEY_BACKSPACE);
@@ -123,10 +129,10 @@ int main(int argc, char **argv) {
 }
 
 int manage_key(Editor *ute, int ch) {
-    Buffer_ *buffer = current_buffer(ute);
+    Buffer *buffer = current_buffer(ute);
     if(ch == KEY_CTRL('c'))
         return 1;
-
+/*
     if(ch == KEY_CTRL('s')) {
         write_file();
         buffer->saved = 1;
@@ -139,7 +145,8 @@ int manage_key(Editor *ute, int ch) {
         buffer_backward_word(buffer);
     }
     if(ch == KEY_CTRL('o')) {
-        open_file(ute, NULL);
+	// TODO: support open file
+//        open_file(ute, NULL);
     }
     if(ch == KEY_CTRL('p')) {
         buffers_prev(ute);
@@ -147,7 +154,7 @@ int manage_key(Editor *ute, int ch) {
     if(ch == KEY_CTRL('n')) {
         buffers_next(ute);
     }
-
+*/
     if(ch == 10) {
 	buffer_insert(buffer, ch);
         buffer->saved = 0;
@@ -187,7 +194,6 @@ int manage_key(Editor *ute, int ch) {
         // Convert tab key to multiple spaces
         if(ch == '\t') {
             for(int i = 0; i < TAB_TO_SPACE; i++) {
-                //line_add_char(&ute.lines[ute.cy], ' ', ute.cx++);
                 buffer_insert(buffer, ' ');
             }
         } else {
@@ -201,7 +207,16 @@ int manage_key(Editor *ute, int ch) {
 }
 
 void update_display(Editor *ute) {
-    assert(0 && "TODO: update_display not implemented");
+    Buffer *buffer = current_buffer(ute);
+    char *str = buffer_str(buffer);
+    move(0,0);
+    // TODO: make the update_display able to scroll
+    // TODO: try to parse the buffer per line, to have a better management of the scrolls
+    clear();
+    addstr(str);
+    free(str);
+    //TODO: update display managing the reset of the cursor
+//    assert(0 && "TODO: update_display not implemented");
     /* Buffer_ *buffer = current_buffer(&ute); */
     /* char str[MAX_STR_SIZE] = {0}; */
     /* clear(); */
@@ -219,13 +234,14 @@ void update_display(Editor *ute) {
     /*     } */
     /* } */
 
-    /* print_status_line(); */
-    /* print_command_line(); */
-    //refresh();
+    print_status_line(ute);
+    print_command_line(ute);
+    refresh();
+
 }
 
 void print_status_line(Editor *ute) {
-    Buffer_ *buffer = current_buffer(ute);
+    Buffer *buffer = current_buffer(ute);
     int sline_pos = ute->screen_height - STATUS_LINE_SPACE;
     int sline_right_start = ute->screen_width - STATUS_LINE_RIGHT_CHAR;
     char str[MAX_STR_SIZE] = {0};
@@ -277,13 +293,14 @@ char *read_command_line(Editor *ute, const char* msg) {
 
 char *shift_args(int *argc, char ***argv) {
     char *arg = **argv;
+    assert(arg != NULL && "Argomento nullo");
     *argc = *argc -1;
     *argv = *argv + 1;
     return arg;
 }
 
-int read_file(Buffer_ *buffer, string_builder_t *sb) {
-    assert(0 && "TODO: read_file not implemented");
+int read_file(Buffer *buffer, string_builder_t *sb) {
+//    assert(0 && "TODO: read_file not implemented");
     size_t file_size;
     int ret = 1;
 
@@ -293,8 +310,7 @@ int read_file(Buffer_ *buffer, string_builder_t *sb) {
         sb->max_size = 0;
     }
 
-    FILE *fin = NULL;
-    /* FILE *fin = fopen(buffer->file_name, "r"); */
+    FILE *fin = fopen(buffer->file_name, "r");
 
     if(!get_file_size(fin, &file_size)) ret_defer(0);
 
@@ -303,11 +319,10 @@ int read_file(Buffer_ *buffer, string_builder_t *sb) {
     fread(sb->data, sizeof(*sb->data), file_size, fin);
     sb->count = file_size;
 
-    for(int i = 0; i < file_size; i++) {
-    }
 
+    buffer_insert_str(buffer, sb->data, sb->count);
 defer:
-    //free(sb.data);
+    free(sb->data);
     fclose(fin);
     return ret;
 }
@@ -344,8 +359,17 @@ int write_file() {
 
 int open_file(Editor *ute, char *file_name) {
     int ret = 1;
-    Buffer_ buffer = buffer_init(0);
-    assert(0 && "TODO: open_file not implemented");
+    Buffer buffer = buffer_init(0);
+
+    assert(file_name != NULL && "ERROR: open_file does not support NULL");
+
+    buffer.file_name = file_name;
+
+    ret = read_file(&buffer, &ute->sb);
+    if (ret) {
+	ute->buffer = buffer;
+    }
+    return ret;
     /* if(file_name == NULL) { */
     /*     buffer.file_name = read_command_line("Open file: "); */
     /* } else { */
@@ -354,12 +378,6 @@ int open_file(Editor *ute, char *file_name) {
     /* if (buffer.file_name == NULL) { */
     /*     return 0; */
     /* } */
-    ret = read_file(&buffer, &ute->sb);
-    if (ret) {
-        ute_da_append(&ute->buffers, buffer);
-        ute->curr_buffer = ute->buffers.count - 1;
-    }
-    return ret;
 }
 
 int get_file_size(FILE *fin, size_t *size) {
@@ -374,7 +392,9 @@ int get_file_size(FILE *fin, size_t *size) {
 }
 
 void delete_char(Editor *ute) {
-    assert(0 && "TODO: delete_char not implemented");
+//    assert(0 && "TODO: delete_char not implemented");
+    Buffer *buffer = current_buffer(ute);
+    buffer_remove(buffer);
 }
 
 void sb_append(string_builder_t *sb, const char *str, size_t str_len) {
@@ -399,17 +419,21 @@ void sb_append_char(string_builder_t *sb, const char val) {
     sb->count += 1;
 }
 
-Buffer_ *current_buffer(Editor *ute) {
-    if (ute->buffers.count == 0) {
-        return NULL;
-    }
-    return &ute->buffers.data[ute->curr_buffer];
+Buffer *current_buffer(Editor *ute) {
+//    assert(0 && "ERROR: current_buffer not implemented");
+    return &ute->buffer;
+    /* if (ute->buffers.count == 0) { */
+    /*     return NULL; */
+    /* } */
+    /* return &ute->buffers.data[ute->curr_buffer]; */
 }
 
 void buffers_next(Editor *ute) {
-    ute->curr_buffer = (ute->curr_buffer + 1) % ute->buffers.count;
+    assert(0 && "ERROR: buffers_next not implemented");
+    //ute->curr_buffer = (ute->curr_buffer + 1) % ute->buffers.count;
 }
 
 void buffers_prev(Editor *ute) {
-    ute->curr_buffer = (ute->curr_buffer - 1 + ute->buffers.count) % ute->buffers.count;
+    assert(0 && "ERROR: buffers_next not implemented");
+    //ute->curr_buffer = (ute->curr_buffer - 1 + ute->buffers.count) % ute->buffers.count;
 }
