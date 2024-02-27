@@ -79,8 +79,19 @@ char* buffer_str(Buffer *gb) {
     return str;
 }
 
-void buffer_prev_line(Buffer *buffer) {
-    assert(0 && "TODO: Not implemented!!");
+void buffer_prev_line(Buffer *gb) {
+    int cl_pos = gb->cursor;
+    while(cl_pos >= 0 && gb->data[cl_pos] != '\n' && gb->data[cl_pos] != '\r') cl_pos--;
+    int pl_pos = cl_pos - 1;
+    while(pl_pos >= 0 && gb->data[pl_pos] != '\n' && gb->data[pl_pos] != '\r') pl_pos--;
+
+    if(pl_pos == cl_pos -1) return;
+    int nc = gb->cursor - cl_pos + pl_pos;
+
+    if(nc < 0) return;
+    
+    buffer_set_cursor(gb, nc);
+    /* assert(0 && "TODO: Not implemented!!"); */
 }
 
 void buffer_next_line(Buffer *gb) {
