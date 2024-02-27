@@ -83,8 +83,38 @@ void buffer_prev_line(Buffer *buffer) {
     assert(0 && "TODO: Not implemented!!");
 }
 
-void buffer_next_line(Buffer *buffer) {
-    assert(0 && "TODO: Not implemented");
+void buffer_next_line(Buffer *gb) {
+    int cl_pos = gb->cursor;
+    int nl_pos = gb->gap_end;
+    int nl_virt_pos = gb->cursor+1;
+    while(cl_pos >= 0 && gb->data[cl_pos] != '\n' && gb->data[cl_pos] != '\r') cl_pos--;
+    while(nl_virt_pos < buffer_size(gb)
+	&& gb->data[nl_pos] != '\n' && gb->data[nl_pos] != '\r'){
+	nl_pos++;
+	nl_virt_pos++;
+    }
+    int limit = nl_pos + 1;
+    nl_virt_pos++;
+    while(nl_virt_pos < buffer_size(gb)
+	&& gb->data[limit] != '\n' &&  gb->data[limit] != '\r'){
+	limit++;
+	nl_virt_pos++;
+    }
+    
+    // aaa  aaaa
+    //    ^
+    // aaaaaaa
+    int nc = gb->cursor - cl_pos + nl_pos;
+    if(nc > gb->capacity) {
+	// TODO: add error codes when messages support is implemented
+	return;
+    }
+    if(nc > limit) {
+	nc = limit;
+    }
+    nc -= gb->gap_end - gb->cursor;
+    buffer_set_cursor(gb, nc);
+//    assert(0 && "TODO: Not implemented");
 }
 
 
