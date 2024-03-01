@@ -23,7 +23,7 @@ ute_da(char, string_builder_t)
 
 typedef struct {
     //int cx, cy;
-    //int scrolly;
+    int scroll;
     int screen_width, screen_height;
     int curr_buffer;
     string_builder_t sb; // Buffer to use when saving the file on the disk
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
 	ute.buffer = buffer_init(0);
     }
 
-    Buffer *buffer = current_buffer(&ute);
+    //Buffer *buffer = current_buffer(&ute);
 
     //buffer->width = ute.screen_width;
     //buffer->height = ute.screen_height - STATUS_LINE_SPACE;
@@ -107,20 +107,12 @@ int main(int argc, char **argv) {
     /* assert(0 && "TODO: unhandled move"); */
     /* move(buffer->cy, buffer->cx); */
 
-    int cx, cy;
-    buffer_cyx(buffer, &cy, &cx);
-    move(cy, cx);
     while (!stop) {
         ch = getch();
 	
         stop = manage_key(&ute, ch);
-	//stop = 1;
-        buffer = current_buffer(&ute);
+        //buffer = current_buffer(&ute);
         update_display(&ute);
-	buffer_cyx(buffer, &cy, &cx);
-	move(cy, cx);
-    
-        /* move(buffer->cy, buffer->cx); */
     }
     endwin();
     //printf("%d\n", KEY_BACKSPACE);
@@ -213,31 +205,50 @@ void update_display(Editor *ute) {
     // TODO: make the update_display able to scroll
     // TODO: try to parse the buffer per line, to have a better management of the scrolls
     clear();
-    addstr(str);
+    //    addstr(str);
+
+    // Check to see if I need to scroll
+    int cy, cx;
+    int sy, sx;
+    buffer_posyx(buffer, buffer->cursor, &cy, &cx);
+    buffer_posyx(buffer, ute->scroll, &sy, &sx);
+
+    int height = ute->screen_height - STATUS_LINE_SPACE;
+    if(cy < sy) {
+        ute->scroll -= 2;
+        while(ute->scroll > 0 && str[ute->scroll] != '\n') ute->scroll--;
+    } else if(height < cy - sy) {
+        while(ute->scroll < buffer->cursor && str[ute->scroll] != '\n') ute->scroll++;
+        ute->scroll++;
+    }
+    
+    int cur_char = ute->scroll;
+    int cur_x = 0;
+    int cur_y = 0;
+    while(cur_char < buffer_size(buffer) && cur_y < height) {
+        if(cur_x == ute->screen_width - 1) {
+            cur_y++;
+            cur_x = 0;
+            while(cur_char < buffer_size(buffer) && str[cur_char] != '\n') cur_char++;
+        } else if(str[cur_char] == '\n') {
+            cur_y++;
+            cur_x = 0;
+        }
+        // There should not be any problems with printing the character if it is a new line
+        addch(str[cur_char]);
+        cur_char++;
+    }
+    
     free(str);
     //TODO: update display managing the reset of the cursor
-//    assert(0 && "TODO: update_display not implemented");
-    /* Buffer_ *buffer = current_buffer(&ute); */
-    /* char str[MAX_STR_SIZE] = {0}; */
-    /* clear(); */
-    /* for(int i = 0; i + buffer->scrolly < buffer->lines.count && i < buffer->height && i < ute.screen_height; i++) { */
-    /*     move(i, 0); */
-    /*     int line_pos = i + buffer->scrolly; */
-    /*     int num_display_char = buffer->lines.data[line_pos].count < buffer->width ? */
-    /*         buffer->lines.data[line_pos].count : buffer->width; */
-    /*     num_display_char = num_display_char < ute.screen_width ? num_display_char : ute.screen_width; */
-    /*     if(num_display_char > 0) { */
-    /*         memcpy(str, buffer->lines.data[line_pos].data, num_display_char); */
-    /*         //buffer[num_display_char] = '\0'; */
-    /*         //addstr(buffer); */
-    /*         addnstr(str, num_display_char); */
-    /*     } */
-    /* } */
-
     print_status_line(ute);
     print_command_line(ute);
     refresh();
 
+    buffer_posyx(buffer, ute->scroll, &sy, &sx);
+    cur_y = cy - sy;
+    if(cur_y >= height) cur_y = height - 1;
+    move(cur_y, cx);
 }
 
 void print_status_line(Editor *ute) {
@@ -246,10 +257,12 @@ void print_status_line(Editor *ute) {
     int sline_right_start = ute->screen_width - STATUS_LINE_RIGHT_CHAR;
     char str[MAX_STR_SIZE] = {0};
     int left_len;
+    int cy, cx;
+    buffer_posyx(buffer, buffer->cursor, &cy, &cx);
     left_len = snprintf(str, MAX_STR_SIZE, "%s", "[New File]");
     memset(&str[left_len], ' ', sline_right_start - left_len);
     int right_len = snprintf(&str[sline_right_start], MAX_STR_SIZE - sline_right_start,
-            "%d,%d", buffer->cy + buffer->scrolly + 1, buffer->cx + 1);
+            "%d,%d", cy /* + buffer->scrolly */ + 1, cx + 1);
     memset(&str[sline_right_start + right_len], ' ', ute->screen_width - right_len - sline_right_start);
     str[ute->screen_width] = '\0';
     attron(A_REVERSE);
@@ -321,6 +334,7 @@ int read_file(Buffer *buffer, string_builder_t *sb) {
 
 
     buffer_insert_str(buffer, sb->data, sb->count);
+    buffer_set_cursor(buffer, 0);
 defer:
     free(sb->data);
     fclose(fin);

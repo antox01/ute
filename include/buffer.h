@@ -10,8 +10,6 @@ typedef struct buffer_s_ {
     int capacity;
     int cursor;
     int gap_end;
-    int cx, cy;
-    int scrolly;
     int saved;
     char *file_name;
 } Buffer;
@@ -40,10 +38,11 @@ void buffer_left(Buffer *gb);
 void buffer_remove(Buffer *gb);
 void buffer_insert(Buffer *gb, char c);
 void buffer_insert_str(Buffer *gb, char *str, int size);
+void buffer_set_cursor(Buffer *gb, int cursor);
 /* void buffer_add_char_cl(Buffer_ *buffer, char ch); */
 int buffer_size(Buffer *gb);
 char* buffer_str(Buffer *gb);
 
-void buffer_cyx(Buffer *gb, int *cy, int *cx);
+void buffer_posyx(Buffer *gb, int pos, int *cy, int *cx);
 
 #endif//BUFFER_H_DEF

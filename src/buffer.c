@@ -85,7 +85,8 @@ void buffer_prev_line(Buffer *gb) {
     int pl_pos = cl_pos - 1;
     while(pl_pos >= 0 && gb->data[pl_pos] != '\n' && gb->data[pl_pos] != '\r') pl_pos--;
 
-    if(pl_pos == cl_pos -1) return;
+    // TODO: find a way to check for the first line
+    if(cl_pos < 0) return;
     int nc = gb->cursor - cl_pos + pl_pos;
 
     // TODO: add error codes when messages support is implemented
@@ -166,9 +167,9 @@ void buffer_backward_word(Buffer *buffer) {
 /*     buffer->cx++; */
 }
 
-void buffer_cyx(Buffer *gb, int *cy, int *cx) {
+void buffer_posyx(Buffer *gb, int pos, int *cy, int *cx) {
     int line = 0, start = 0;
-    for(int i = 0; i < gb->cursor; i++) {
+    for(int i = 0; i < pos; i++) {
 	if(gb->data[i] == '\n') {
 	    line++;
 	    start = i+1;
