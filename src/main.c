@@ -217,7 +217,7 @@ void update_display(Editor *ute) {
     if(cy < sy) {
         ute->scroll -= 2;
         while(ute->scroll > 0 && str[ute->scroll] != '\n') ute->scroll--;
-    } else if(height < cy - sy) {
+    } else if(height <= cy - sy) {
         while(ute->scroll < buffer->cursor && str[ute->scroll] != '\n') ute->scroll++;
         ute->scroll++;
     }
@@ -259,7 +259,11 @@ void print_status_line(Editor *ute) {
     int left_len;
     int cy, cx;
     buffer_posyx(buffer, buffer->cursor, &cy, &cx);
-    left_len = snprintf(str, MAX_STR_SIZE, "%s", "[New File]");
+    if (ute->buffer.file_name) {
+        left_len = snprintf(str, MAX_STR_SIZE, "%s", ute->buffer.file_name);
+    } else {
+        left_len = snprintf(str, MAX_STR_SIZE, "%s", "[New File]");
+    }
     memset(&str[left_len], ' ', sline_right_start - left_len);
     int right_len = snprintf(&str[sline_right_start], MAX_STR_SIZE - sline_right_start,
             "%d,%d", cy /* + buffer->scrolly */ + 1, cx + 1);
@@ -381,7 +385,7 @@ int open_file(Editor *ute, char *file_name) {
 
     ret = read_file(&buffer, &ute->sb);
     if (ret) {
-	ute->buffer = buffer;
+        ute->buffer = buffer;
     }
     return ret;
     /* if(file_name == NULL) { */
