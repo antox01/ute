@@ -17,6 +17,7 @@ Buffer buffer_init(int size) {
 }
 
 void buffer_free(Buffer *gb) {
+    if(gb->file_name != NULL) free(gb->file_name);
     free(gb->data);
 }
 

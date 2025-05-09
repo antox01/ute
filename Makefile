@@ -1,7 +1,7 @@
 CC=gcc
 
 IFLAGS=-I./include
-CFLAGS=-Wall -lncurses
+CFLAGS=-Wall -Wextra -lncurses
 
 OUT_FILES=out/line.o out/buffer.o
 

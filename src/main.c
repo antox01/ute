@@ -37,7 +37,7 @@ void sb_append(string_builder_t *sb, const char *str, size_t str_len);
 void sb_append_char(string_builder_t *sb, const char val);
 
 int read_file(Buffer *buffer);
-int write_file();
+int write_file(Editor *ute);
 int open_file(Editor *ute, char *file_name);
 int get_file_size(FILE *fin, size_t *size);
 int manage_key(Editor *ute, int ch);
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
         open_file(&ute, strdup(shift_args(&argc, &argv)));
     } else {
         /* ute_da_append(&ute.buffers, buffer_init(0)); */
-	ute.buffer = buffer_init(0);
+        ute.buffer = buffer_init(0);
     }
 
     //Buffer *buffer = current_buffer(&ute);
@@ -123,11 +123,11 @@ int manage_key(Editor *ute, int ch) {
     Buffer *buffer = current_buffer(ute);
     if(ch == KEY_CTRL('c'))
         return 1;
-/*
     if(ch == KEY_CTRL('s')) {
-        write_file();
+        write_file(ute);
         buffer->saved = 1;
     }
+/*
 
     if(ch == KEY_CTRL('f')) {
         buffer_forward_word(buffer);
@@ -342,34 +342,28 @@ defer:
     return ret;
 }
 
-int write_file() {
-    assert(0 && "TODO: write_file not implemented");
-/*     Buffer_ *buffer = current_buffer(&ute); */
-/*     int ret = 0, str_size; */
-/*     char str[MAX_STR_SIZE]; */
-/*     ute.sb.count = 0; */
-/*     for(int i = 0; i < buffer->lines.count; i++) { */
-/*         sb_append(&ute.sb, buffer->lines.data[i].data, buffer->lines.data[i].count); */
-/*         sb_append_char(&ute.sb, '\n'); */
-/*     } */
+int write_file(Editor *ute) {
+    Buffer *buffer = current_buffer(ute);
+    assert(buffer->file_name != NULL && "TODO: write_file does not support command line");
 
-/*     if(buffer->file_name == NULL) { */
-/*         buffer->file_name = read_command_line("File name: "); */
-/*     } */
+    FILE *fout = fopen(buffer->file_name, "w");
+    if(fout == NULL) return 1;
 
-/*     FILE *fout = fopen(buffer->file_name, "w"); */
-/*     if(fout == NULL) ret_defer(1); */
-/*     fwrite(ute.sb.data, sizeof(*ute.sb.data), ute.sb.count, fout); */
-/*     if(ferror(fout)) ret_defer(1); */
+    int saved_cursor = buffer->cursor;
+    int buf_size = buffer_size(buffer);
 
-/*     str_size = snprintf(str, MAX_STR_SIZE, */
-/*             "\"%s\" written %ld bytes", buffer->file_name, ute.sb.count * sizeof(*ute.sb.data)); */
-/*     ute.command_output.count = 0; */
-/*     sb_append(&ute.command_output, str, str_size); */
+    buffer_set_cursor(buffer, buf_size);
 
-/* defer: */
-/*     if(fout != NULL) fclose(fout); */
-/*     return ret; */
+    while(buf_size > 0) {
+        int n = fwrite(buffer->data, sizeof(*buffer->data), buf_size, fout);
+        assert(n != 0);
+        buf_size -= n/sizeof(*buffer->data);
+    }
+
+    buffer_set_cursor(buffer, saved_cursor);
+
+    fclose(fout);
+    return 0;
 }
 
 int open_file(Editor *ute, char *file_name) {
@@ -444,11 +438,13 @@ Buffer *current_buffer(Editor *ute) {
 }
 
 void buffers_next(Editor *ute) {
+    (void) ute;
     assert(0 && "ERROR: buffers_next not implemented");
     //ute->curr_buffer = (ute->curr_buffer + 1) % ute->buffers.count;
 }
 
 void buffers_prev(Editor *ute) {
+    (void) ute;
     assert(0 && "ERROR: buffers_next not implemented");
     //ute->curr_buffer = (ute->curr_buffer - 1 + ute->buffers.count) % ute->buffers.count;
 }
@@ -457,5 +453,4 @@ void buffers_prev(Editor *ute) {
 // TODO: Cursor needs to take into account tab characters when moving
 // TODO: Parse Buffer by line, to optimize some things
 // TODO: Use a Buffer structure for the command line, to have automatic history
-// TODO: File needs to be saved
 // TODO: Improve keybinding management
