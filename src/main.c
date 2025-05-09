@@ -26,7 +26,6 @@ typedef struct {
     int scroll;
     int screen_width, screen_height;
     int curr_buffer;
-    string_builder_t sb; // Buffer to use when saving the file on the disk
     Buffer buffer;
     //Buffers buffers;
     char cwd[MAX_STR_SIZE];
@@ -37,7 +36,7 @@ typedef struct {
 void sb_append(string_builder_t *sb, const char *str, size_t str_len);
 void sb_append_char(string_builder_t *sb, const char val);
 
-int read_file(Buffer *buffer, string_builder_t *sb);
+int read_file(Buffer *buffer);
 int write_file();
 int open_file(Editor *ute, char *file_name);
 int get_file_size(FILE *fin, size_t *size);
@@ -176,7 +175,7 @@ int manage_key(Editor *ute, int ch) {
             buffer_left(buffer);
             break;
     }
-    if(ch == 127) {
+    if(ch == 127 || ch == KEY_BACKSPACE) {
         delete_char(ute);
         buffer->saved = 0;
     } else if(ch == KEY_DC){
@@ -200,18 +199,21 @@ int manage_key(Editor *ute, int ch) {
 
 void update_display(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
-    char *str = buffer_str(buffer);
+    int save_cursor = buffer->cursor;
+
     move(0,0);
-    // TODO: make the update_display able to scroll
+    // TODO: make the update_display able to scroll horizontally
     // TODO: try to parse the buffer per line, to have a better management of the scrolls
     clear();
-    //    addstr(str);
 
     // Check to see if I need to scroll
     int cy, cx;
     int sy, sx;
     buffer_posyx(buffer, buffer->cursor, &cy, &cx);
     buffer_posyx(buffer, ute->scroll, &sy, &sx);
+
+    buffer_set_cursor(buffer, buffer_size(buffer));
+    char *str = buffer->data;
 
     int height = ute->screen_height - STATUS_LINE_SPACE;
     if(cy < sy) {
@@ -234,16 +236,18 @@ void update_display(Editor *ute) {
             cur_y++;
             cur_x = 0;
         }
+        // TODO: Maybe there is a need for a buffer to print everything faster
         // There should not be any problems with printing the character if it is a new line
         addch(str[cur_char]);
         cur_char++;
     }
     
-    free(str);
-    //TODO: update display managing the reset of the cursor
+    //TODO: update_display managing the reset of the cursor
     print_status_line(ute);
     print_command_line(ute);
     refresh();
+
+    buffer_set_cursor(buffer, save_cursor);
 
     buffer_posyx(buffer, ute->scroll, &sy, &sx);
     cur_y = cy - sy;
@@ -316,31 +320,24 @@ char *shift_args(int *argc, char ***argv) {
     return arg;
 }
 
-int read_file(Buffer *buffer, string_builder_t *sb) {
+int read_file(Buffer *buffer) {
 //    assert(0 && "TODO: read_file not implemented");
     size_t file_size;
     int ret = 1;
 
-    if(sb->max_size > 0) {
-        free(sb->data);
-        sb->count = 0;
-        sb->max_size = 0;
-    }
-
     FILE *fin = fopen(buffer->file_name, "r");
+    char str_buf[MAX_STR_SIZE];
 
     if(!get_file_size(fin, &file_size)) ret_defer(0);
 
-    sb->data = malloc(file_size * sizeof(*sb->data));
-    sb->max_size = file_size;
-    fread(sb->data, sizeof(*sb->data), file_size, fin);
-    sb->count = file_size;
+    while(file_size > 0) {
+        int n = fread(str_buf, sizeof(*str_buf), MAX_STR_SIZE, fin);
+        file_size -= n;
+        buffer_insert_str(buffer, str_buf, n);
+    }
 
-
-    buffer_insert_str(buffer, sb->data, sb->count);
     buffer_set_cursor(buffer, 0);
 defer:
-    free(sb->data);
     fclose(fin);
     return ret;
 }
@@ -383,7 +380,7 @@ int open_file(Editor *ute, char *file_name) {
 
     buffer.file_name = file_name;
 
-    ret = read_file(&buffer, &ute->sb);
+    ret = read_file(&buffer);
     if (ret) {
         ute->buffer = buffer;
     }
@@ -455,3 +452,10 @@ void buffers_prev(Editor *ute) {
     assert(0 && "ERROR: buffers_next not implemented");
     //ute->curr_buffer = (ute->curr_buffer - 1 + ute->buffers.count) % ute->buffers.count;
 }
+
+
+// TODO: Cursor needs to take into account tab characters when moving
+// TODO: Parse Buffer by line, to optimize some things
+// TODO: Use a Buffer structure for the command line, to have automatic history
+// TODO: File needs to be saved
+// TODO: Improve keybinding management
