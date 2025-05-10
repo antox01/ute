@@ -3,9 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
 #include <unistd.h>
-
 #include "buffer.h"
 #include "common.h"
 
@@ -23,7 +21,7 @@ ute_da(char, string_builder_t)
 
 typedef struct {
     //int cx, cy;
-    int scroll;
+    int scroll; // This variable is used to store the position of the first character to display
     int screen_width, screen_height;
     int curr_buffer;
     Buffer buffer;
@@ -218,7 +216,8 @@ void update_display(Editor *ute) {
     int height = ute->screen_height - STATUS_LINE_SPACE;
     if(cy < sy) {
         ute->scroll -= 2;
-        while(ute->scroll > 0 && str[ute->scroll] != '\n') ute->scroll--;
+        while(ute->scroll >= 0 && str[ute->scroll] != '\n') ute->scroll--;
+        ute->scroll++;
     } else if(height <= cy - sy) {
         while(ute->scroll < buffer->cursor && str[ute->scroll] != '\n') ute->scroll++;
         ute->scroll++;
