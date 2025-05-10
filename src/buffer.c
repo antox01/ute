@@ -5,17 +5,6 @@
 
 #include "buffer.h"
 
-Buffer buffer_init(int size) {
-    Buffer buf = {0};
-    int capacity = max(BUF_CAPACITY, size);
-    buf.data = (char *) malloc(sizeof(char) * capacity);
-    assert(buf.data != NULL && "Not enough memory");
-    buf.cursor = 0;
-    buf.gap_end = capacity;
-    buf.capacity = capacity;
-    return buf;
-}
-
 void buffer_free(Buffer *gb) {
     if(gb->file_name != NULL) free(gb->file_name);
     free(gb->data);
@@ -23,13 +12,15 @@ void buffer_free(Buffer *gb) {
 
 void buffer_grow(Buffer *gb) {
     int nc = gb->capacity * 2;
+    if(nc == 0) nc = BUF_CAPACITY;
     gb->data = (char*) realloc(gb->data, sizeof(char) * nc);
     assert(gb->data != NULL && "Not enough memory");
-    if(gb->gap_end < gb->capacity) {
-	int rem = gb->capacity - gb->gap_end;
-	memmove(&gb->data[nc - rem], &gb->data[gb->cursor], rem);
-	gb->gap_end = nc - rem;
+    if(gb->capacity == 0 || gb->gap_end < gb->capacity) {
+        int rem = gb->capacity - gb->gap_end;
+        memmove(&gb->data[nc - rem], &gb->data[gb->cursor], rem);
+        gb->gap_end = nc - rem;
     }
+
     gb->capacity = nc;
 }
 
@@ -39,13 +30,14 @@ void buffer_remove(Buffer *gb) {
 
 void buffer_insert(Buffer *gb, char c) {
     if(gb->cursor >= gb->gap_end) buffer_grow(gb);
+    assert(gb->cursor < gb->gap_end && "Impossible");
     gb->data[gb->cursor] = c;
     gb->cursor++;
 }
 
 void buffer_insert_str(Buffer *gb, char* str, int str_size) {
     for(int i = 0; i < str_size; i++) {
-	buffer_insert(gb, str[i]);
+        buffer_insert(gb, str[i]);
     }
 }
 
@@ -64,10 +56,10 @@ void buffer_left(Buffer *gb) {
 void buffer_set_cursor(Buffer *gb, int cursor) {
     int diff = cursor - gb-> cursor;
     for(; diff < 0; diff++) {
-	buffer_left(gb);
+        buffer_left(gb);
     }
     for(; diff > 0; diff--) {
-	buffer_right(gb);
+        buffer_right(gb);
     }
 }
 
@@ -101,13 +93,13 @@ void buffer_next_line(Buffer *gb) {
     int nl_pos = gb->gap_end;
     while(cl_pos >= 0 && gb->data[cl_pos] != '\n' && gb->data[cl_pos] != '\r') cl_pos--;
     while(nl_pos < gb->capacity
-	&& gb->data[nl_pos] != '\n' && gb->data[nl_pos] != '\r'){
-	nl_pos++;
+            && gb->data[nl_pos] != '\n' && gb->data[nl_pos] != '\r'){
+        nl_pos++;
     }
     int limit = nl_pos + 1;
     while(limit < gb->capacity
-	&& gb->data[limit] != '\n' &&  gb->data[limit] != '\r'){
-	limit++;
+            && gb->data[limit] != '\n' &&  gb->data[limit] != '\r'){
+        limit++;
     }
     
     int nc = gb->cursor - cl_pos + nl_pos;

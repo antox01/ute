@@ -14,9 +14,7 @@
 
 #define KEY_CTRL(x) (x & 0x1F)
 
-#define is_printable(x) (0x20 <= x && x <= 0xFF)
-
-ute_da(char, string_builder_t)
+#define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n')
 
 
 typedef struct {
@@ -77,66 +75,31 @@ int main(int argc, char **argv) {
 
     if(argc > 0) {
         open_file(&ute, strdup(shift_args(&argc, &argv)));
-    } else {
-        /* ute_da_append(&ute.buffers, buffer_init(0)); */
-        ute.buffer = buffer_init(0);
     }
-
-    //Buffer *buffer = current_buffer(&ute);
-
-    //buffer->width = ute.screen_width;
-    //buffer->height = ute.screen_height - STATUS_LINE_SPACE;
 
     int ch, stop = 0;
 
-    //ch = getch();
-    //int ch2;
-    //ch2 = getch();
-    ////ch3 = getch();
-
-    //endwin();
-    //printf("%d\n", ch);
-    //printf("%d\n", KEY_CTRL('f'));
-    //printf("%d\n", ch2);
-    //printf("%d\n", ch3);
-    //return 0;
-
     update_display(&ute);
-    /* assert(0 && "TODO: unhandled move"); */
-    /* move(buffer->cy, buffer->cx); */
 
     while (!stop) {
         ch = getch();
 	
         stop = manage_key(&ute, ch);
-        //buffer = current_buffer(&ute);
         update_display(&ute);
     }
     endwin();
-    //printf("%d\n", KEY_BACKSPACE);
-    //printf("%d\n", ch_save);
     return 0;
 }
 
 int manage_key(Editor *ute, int ch) {
     Buffer *buffer = current_buffer(ute);
-    if(ch == KEY_CTRL('c'))
-        return 1;
-    if(ch == KEY_CTRL('s')) {
-        write_file(ute);
-        buffer->saved = 1;
-    }
-/*
 
+/*
     if(ch == KEY_CTRL('f')) {
         buffer_forward_word(buffer);
     }
     if(ch == KEY_CTRL('b')) {
         buffer_backward_word(buffer);
-    }
-    if(ch == KEY_CTRL('o')) {
-	// TODO: support open file
-//        open_file(ute, NULL);
     }
     if(ch == KEY_CTRL('p')) {
         buffers_prev(ute);
@@ -145,22 +108,20 @@ int manage_key(Editor *ute, int ch) {
         buffers_next(ute);
     }
 */
-    if(ch == 10) {
-	buffer_insert(buffer, ch);
-        buffer->saved = 0;
-    } 
-
-    if(KEY_CTRL('a') <= ch && ch <= KEY_CTRL('z')) {
-        //TODO: manage all ctrl keybinding
-        return 0;
-    }
-
-    if(ch == KEY_RESIZE) {
-        getmaxyx(stdscr, ute->screen_height, ute->screen_width);
-        //buffer_set_size(buffer, ute.screen_width, ute.screen_height - STATUS_LINE_SPACE);
-    }
 
     switch (ch) {
+        case KEY_CTRL('c'):
+            return 1;
+        case KEY_CTRL('s'):
+            write_file(ute);
+            buffer->dirty = 0;
+            break;
+        case KEY_CTRL('o'):
+            open_file(ute, NULL);
+            break;
+        case KEY_RESIZE:
+            getmaxyx(stdscr, ute->screen_height, ute->screen_width);
+            break;
         case KEY_DOWN:
             buffer_next_line(buffer);
             break;
