@@ -1,13 +1,15 @@
 CC=gcc
 
+OUTDIR=out
 IFLAGS=-I./include
 CFLAGS=-Wall -Wextra -lncurses
 
 OUT_FILES=out/line.o out/buffer.o
 
-.PHONY=setup
+all: $(OUTDIR) ute
 
-ute: setup src/main.c $(OUT_FILES)
+.PHONY=ute
+ute: src/main.c $(OUT_FILES)
 	$(CC) -g -o out/ute src/main.c $(OUT_FILES) $(CFLAGS) $(IFLAGS)
 
 out/line.o: src/line.c
@@ -16,5 +18,5 @@ out/line.o: src/line.c
 out/buffer.o: src/buffer.c
 	$(CC) -g -c -o out/buffer.o src/buffer.c $(IFLAGS)
 
-setup:
-	[ -d "out" ] || mkdir out
+$(OUTDIR):
+	mkdir $(OUTDIR)
