@@ -10,7 +10,7 @@ typedef struct buffer_s_ {
     int capacity;
     int cursor;
     int gap_end;
-    int saved;
+    int dirty;
     char *file_name;
 } Buffer;
 
@@ -23,7 +23,6 @@ ute_da(Buffer, Buffers);
 /* void buffer_free(Buffer buffer); */
 
 /* void buffer_set_size(Buffer *buffer, int width, int height); */
-Buffer buffer_init(int size);
 void buffer_free(Buffer *gb);
 
 
