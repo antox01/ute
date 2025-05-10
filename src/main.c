@@ -27,12 +27,25 @@ typedef struct {
     Buffer buffer;
     //Buffers buffers;
     char cwd[MAX_STR_SIZE];
-    string_builder_t command_output;
+    Buffer command;
 } Editor;
 
 
+typedef struct {
+    char *data;
+    size_t count;
+    size_t max_size;
+} string_builder_t;
+
 void sb_append(string_builder_t *sb, const char *str, size_t str_len);
 void sb_append_char(string_builder_t *sb, const char val);
+
+typedef struct {
+    char *data;
+    size_t count;
+} string_view_t;
+
+char *sv_to_cstr(string_view_t sv);
 
 int read_file(Buffer *buffer);
 int write_file(Editor *ute);
@@ -41,10 +54,8 @@ int get_file_size(FILE *fin, size_t *size);
 int manage_key(Editor *ute, int ch);
 void update_display(Editor *ute);
 void print_status_line(Editor *ute);
-void print_command_line(Editor *ute);
-char *read_command_line(Editor *ute, const char* msg);
-
-void delete_char(Editor *ute);
+void print_command_line(Editor *ute, const char* msg);
+string_view_t read_command_line(Editor *ute, const char* msg);
 
 Buffer *current_buffer(Editor *ute);
 void buffers_next(Editor *ute);
@@ -57,16 +68,6 @@ int main(int argc, char **argv) {
     shift_args(&argc, &argv);
 
     getcwd(ute.cwd, MAX_STR_SIZE);
-
-    //printf("%s\n", ute.cwd);
-    //return 0;
-
-    //ute.buffer = buffer_init();
-
-    //return 0;
-
-    //printf("%d\n", KEY_DC);
-    //return 0;
 
     initscr();
     keypad(stdscr, 1);
@@ -172,25 +173,32 @@ int manage_key(Editor *ute, int ch) {
         case KEY_LEFT:
             buffer_left(buffer);
             break;
-    }
-    if(ch == 127 || ch == KEY_BACKSPACE) {
-        delete_char(ute);
-        buffer->saved = 0;
-    } else if(ch == KEY_DC){
-	//int line_pos = buffer->cy + buffer->scrolly;
-	assert(0 && "TODO: not implemented");
-    } else if(is_printable(ch)) {
-        // Convert tab key to multiple spaces
-        if(ch == '\t') {
-            for(int i = 0; i < TAB_TO_SPACE; i++) {
-                buffer_insert(buffer, ' ');
+        case KEY_DC:
+            buffer_right(buffer);
+            fallthrough;
+        case 127:
+        case KEY_BACKSPACE:
+            buffer_remove(buffer);
+            buffer->dirty = 1;
+            break;
+
+        default: {
+            //TODO: manage all ctrl keybinding
+
+            if(is_printable(ch)) {
+                // Convert tab key to multiple spaces
+                if(ch == '\t') {
+                    for(int i = 0; i < TAB_TO_SPACE; i++) {
+                        buffer_insert(buffer, ' ');
+                    }
+                } else {
+                    //line_add_char(&ute.lines[ute.cy], ch, ute.cx);
+                    //ute.cx++;
+                    buffer_insert(buffer, ch);
+                }
+                buffer->dirty = 1;
             }
-        } else {
-            //line_add_char(&ute.lines[ute.cy], ch, ute.cx);
-            //ute.cx++;
-            buffer_insert(buffer, ch);
-        }
-        buffer->saved = 0;
+         }
     }
     return 0;
 }
@@ -243,7 +251,7 @@ void update_display(Editor *ute) {
     
     //TODO: update_display managing the reset of the cursor
     print_status_line(ute);
-    print_command_line(ute);
+    print_command_line(ute, "");
     refresh();
 
     buffer_set_cursor(buffer, save_cursor);
@@ -267,6 +275,8 @@ void print_status_line(Editor *ute) {
     } else {
         left_len = snprintf(str, MAX_STR_SIZE, "%s", "[New File]");
     }
+    if(buffer->dirty && left_len < MAX_STR_SIZE - 1) str[left_len++] = '+';
+
     memset(&str[left_len], ' ', sline_right_start - left_len);
     int right_len = snprintf(&str[sline_right_start], MAX_STR_SIZE - sline_right_start,
             "%d,%d", cy /* + buffer->scrolly */ + 1, cx + 1);
@@ -278,35 +288,42 @@ void print_status_line(Editor *ute) {
     attroff(A_REVERSE);
 }
 
-void print_command_line(Editor *ute) {
+void print_command_line(Editor *ute, const char* msg) {
+    int start = ute->command.cursor;
     move(ute->screen_height - 1, 0);
-    addnstr(ute->command_output.data, ute->command_output.count);
+    if(ute->command.capacity > 0) {
+        while(start >= 0 && ute->command.data[start] != '\n') start--;
+        start++;
+    }
+    assert(start >= 0 && "Impossible");
+    if(msg != NULL && strlen(msg) > 0) addnstr(msg, strlen(msg));
+    addnstr(&ute->command.data[start], (int)ute->command.cursor - start);
 }
 
-char *read_command_line(Editor *ute, const char* msg) {
+string_view_t read_command_line(Editor *ute, const char* msg) {
     int start = 0;
-    char *ret = NULL;
-    ute->command_output.count = 0;
-    sb_append(&ute->command_output, msg, strlen(msg));
-    start = ute->command_output.count;
-    print_command_line(ute);
+    string_view_t ret = {0};
+    //sb_append(&ute->command_output, msg, strlen(msg));
+    start = ute->command.cursor;
+    print_command_line(ute, msg);
     int ch = getch();
     while (ch != '\n' && ch != KEY_CTRL('c')) {
-        if(ch == 127) {
-            if(ute->command_output.count > start) {
-                ute->command_output.count -= 1;
-                ute->command_output.data[ute->command_output.count] ='\0';
-            }
+        if(ch == 127 || ch == KEY_BACKSPACE) {
+            buffer_remove(&ute->command);
         } else {
-            sb_append_char(&ute->command_output, ch);
+            buffer_insert(&ute->command, ch);
         }
-        print_command_line(ute);
+        print_command_line(ute, msg);
         ch = getch();
     }
     if(ch != KEY_CTRL('c')) {
-        ret = strdup(&ute->command_output.data[start]);
+        ret = (string_view_t){
+            .data = &ute->command.data[start],
+            .count = ute->command.cursor - start,
+        };
+        buffer_insert(&ute->command, '\n');
     } else {
-        ute->command_output.count = 0;
+        ute->command.cursor = start;
     }
     return ret;
 }
@@ -343,7 +360,12 @@ defer:
 
 int write_file(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
-    assert(buffer->file_name != NULL && "TODO: write_file does not support command line");
+    string_view_t sv = {0};
+    //assert(buffer->file_name != NULL && "TODO: write_file does not support command line");
+    if(buffer->file_name == NULL) {
+        sv = read_command_line(ute, "Save file: ");
+        if(sv.count > 0) buffer->file_name = sv_to_cstr(sv);
+    }
 
     FILE *fout = fopen(buffer->file_name, "w");
     if(fout == NULL) return 1;
@@ -368,8 +390,18 @@ int write_file(Editor *ute) {
 int open_file(Editor *ute, char *file_name) {
     int ret = 1;
     Buffer buffer = buffer_init(0);
+    string_view_t sv;
 
-    assert(file_name != NULL && "ERROR: open_file does not support NULL");
+    //assert(file_name != NULL && "ERROR: open_file does not support NULL");
+    if(file_name == NULL) {
+        sv = read_command_line(ute, "Open file: ");
+        if(sv.count > 0) buffer.file_name = sv_to_cstr(sv);
+    } else {
+        buffer.file_name = file_name;
+    }
+    if (buffer.file_name == NULL) {
+        return 0;
+    }
 
     buffer.file_name = file_name;
 
@@ -378,14 +410,6 @@ int open_file(Editor *ute, char *file_name) {
         ute->buffer = buffer;
     }
     return ret;
-    /* if(file_name == NULL) { */
-    /*     buffer.file_name = read_command_line("Open file: "); */
-    /* } else { */
-    /*     buffer.file_name = file_name; */
-    /* } */
-    /* if (buffer.file_name == NULL) { */
-    /*     return 0; */
-    /* } */
 }
 
 int get_file_size(FILE *fin, size_t *size) {
@@ -397,12 +421,6 @@ int get_file_size(FILE *fin, size_t *size) {
     *size = end;
 
     return 1;
-}
-
-void delete_char(Editor *ute) {
-//    assert(0 && "TODO: delete_char not implemented");
-    Buffer *buffer = current_buffer(ute);
-    buffer_remove(buffer);
 }
 
 void sb_append(string_builder_t *sb, const char *str, size_t str_len) {
@@ -448,8 +466,17 @@ void buffers_prev(Editor *ute) {
     //ute->curr_buffer = (ute->curr_buffer - 1 + ute->buffers.count) % ute->buffers.count;
 }
 
+char *sv_to_cstr(string_view_t sv) {
+    string_builder_t sb = {0};
+    char *data = sv.data;
+    size_t count = sv.count;
+    ute_da_append_many(&sb, data, count);
+    return sb.data;
+}
+
 
 // TODO: Cursor needs to take into account tab characters when moving
 // TODO: Parse Buffer by line, to optimize some things
 // TODO: Use a Buffer structure for the command line, to have automatic history
 // TODO: Improve keybinding management
+// TODO: C syntax highlighting
