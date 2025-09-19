@@ -19,4 +19,4 @@ out/buffer.o: src/buffer.c
 	$(CC) -g -c -o out/buffer.o src/buffer.c $(IFLAGS)
 
 $(OUTDIR):
-	mkdir $(OUTDIR)
+	mkdir -p $(OUTDIR)

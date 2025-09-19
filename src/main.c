@@ -1,6 +1,7 @@
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
@@ -11,11 +12,20 @@
 #define STATUS_LINE_SPACE 2
 #define STATUS_LINE_RIGHT_CHAR 20
 #define TAB_TO_SPACE 4
-
+#define EXPAND_TAB false
 #define KEY_CTRL(x) (x & 0x1F)
 
-#define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n')
+#define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
 
+typedef struct {
+    char *data;
+    size_t count;
+    size_t max_size;
+
+    // Real cursor position
+    int cx;
+    int cy;
+} Display;
 
 typedef struct {
     //int cx, cy;
@@ -23,6 +33,7 @@ typedef struct {
     int screen_width, screen_height;
     int curr_buffer;
     Buffer buffer;
+    Display display;
     //Buffers buffers;
     char cwd[MAX_STR_SIZE];
     Buffer command;
@@ -72,6 +83,14 @@ int main(int argc, char **argv) {
     raw();
     noecho();
     getmaxyx(stdscr, ute.screen_height, ute.screen_width);
+#if 0
+    int ch, stop = 0;
+    ch = getch();
+    endwin();
+
+    printf("%d\n", ch);
+    return 0;
+#else
 
     if(argc > 0) {
         open_file(&ute, strdup(shift_args(&argc, &argv)));
@@ -89,25 +108,11 @@ int main(int argc, char **argv) {
     }
     endwin();
     return 0;
+#endif
 }
 
 int manage_key(Editor *ute, int ch) {
     Buffer *buffer = current_buffer(ute);
-
-/*
-    if(ch == KEY_CTRL('f')) {
-        buffer_forward_word(buffer);
-    }
-    if(ch == KEY_CTRL('b')) {
-        buffer_backward_word(buffer);
-    }
-    if(ch == KEY_CTRL('p')) {
-        buffers_prev(ute);
-    }
-    if(ch == KEY_CTRL('n')) {
-        buffers_next(ute);
-    }
-*/
 
     switch (ch) {
         case KEY_CTRL('c'):
@@ -148,7 +153,7 @@ int manage_key(Editor *ute, int ch) {
 
             if(is_printable(ch)) {
                 // Convert tab key to multiple spaces
-                if(ch == '\t') {
+                if(EXPAND_TAB && ch == '\t') {
                     for(int i = 0; i < TAB_TO_SPACE; i++) {
                         buffer_insert(buffer, ' ');
                     }
@@ -166,6 +171,8 @@ int manage_key(Editor *ute, int ch) {
 
 void update_display(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
+    Display *display = &ute->display;
+    display->count = 0;
     int save_cursor = buffer->cursor;
 
     move(0,0);
@@ -182,6 +189,15 @@ void update_display(Editor *ute) {
     buffer_set_cursor(buffer, buffer_size(buffer));
     char *str = buffer->data;
 
+    for(int i = 0; i < buffer_size(buffer); i++) {
+        // Correctly render the \t
+        if(str[i] == '\t') {
+            for(size_t j = 0; j < TAB_TO_SPACE; j++) {
+                ute_da_append(display, ' ');
+            }
+        } else ute_da_append(display, str[i]);
+    }
+
     int height = ute->screen_height - STATUS_LINE_SPACE;
     if(cy < sy) {
         ute->scroll -= 2;
@@ -195,19 +211,20 @@ void update_display(Editor *ute) {
     int cur_char = ute->scroll;
     int cur_x = 0;
     int cur_y = 0;
-    while(cur_char < buffer_size(buffer) && cur_y < height) {
+    while((size_t)cur_char < display->count && cur_y < height) {
         if(cur_x == ute->screen_width - 1) {
             cur_y++;
             cur_x = 0;
-            while(cur_char < buffer_size(buffer) && str[cur_char] != '\n') cur_char++;
+            while((size_t)cur_char < display->count && display->data[cur_char] != '\n') cur_char++;
         } else if(str[cur_char] == '\n') {
             cur_y++;
             cur_x = 0;
         }
         // TODO: Maybe there is a need for a buffer to print everything faster
         // There should not be any problems with printing the character if it is a new line
-        addch(str[cur_char]);
+        addch(display->data[cur_char]);
         cur_char++;
+        cur_x++;
     }
     
     //TODO: update_display managing the reset of the cursor
@@ -217,7 +234,7 @@ void update_display(Editor *ute) {
 
     buffer_set_cursor(buffer, save_cursor);
 
-    buffer_posyx(buffer, ute->scroll, &sy, &sx);
+    //buffer_posyx(buffer, ute->scroll, &sy, &sx);
     cur_y = cy - sy;
     if(cur_y >= height) cur_y = height - 1;
     move(cur_y, cx);
@@ -350,7 +367,7 @@ int write_file(Editor *ute) {
 
 int open_file(Editor *ute, char *file_name) {
     int ret = 1;
-    Buffer buffer = buffer_init(0);
+    Buffer buffer = {0};
     string_view_t sv;
 
     //assert(file_name != NULL && "ERROR: open_file does not support NULL");
