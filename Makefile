@@ -4,13 +4,18 @@ OUTDIR=out
 IFLAGS=-I./include
 CFLAGS=-Wall -Wextra -lncurses
 
-OUT_FILES=out/line.o out/buffer.o
+OUT_FILES=out/line.o out/buffer.o out/main.o
 
 all: $(OUTDIR) ute
 
 .PHONY=ute
-ute: src/main.c $(OUT_FILES)
-	$(CC) -g -o out/ute src/main.c $(OUT_FILES) $(CFLAGS) $(IFLAGS)
+ute: out/ute
+
+out/ute: $(OUT_FILES)
+	$(CC) -g -o out/ute $(OUT_FILES) $(CFLAGS) $(IFLAGS)
+
+out/main.o: src/main.c
+	$(CC) -g -c -o out/main.o src/main.c $(CFLAGS) $(IFLAGS)
 
 out/line.o: src/line.c
 	$(CC) -g -c -o out/line.o src/line.c $(IFLAGS)
