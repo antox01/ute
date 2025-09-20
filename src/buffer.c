@@ -15,7 +15,7 @@ void buffer_grow(Buffer *gb) {
     if(nc == 0) nc = BUF_CAPACITY;
     gb->data = (char*) realloc(gb->data, sizeof(char) * nc);
     assert(gb->data != NULL && "Not enough memory");
-    if(gb->capacity == 0 || gb->gap_end < gb->capacity) {
+    if(gb->capacity == 0 || gb->gap_end <= gb->capacity) {
         int rem = gb->capacity - gb->gap_end;
         memmove(&gb->data[nc - rem], &gb->data[gb->cursor], rem);
         gb->gap_end = nc - rem;

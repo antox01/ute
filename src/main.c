@@ -15,12 +15,33 @@
 #define EXPAND_TAB false
 #define KEY_CTRL(x) (x & 0x1F)
 
+#define DEFAULT_COLOR 1
+#define KEYWORD_COLOR 2
+
 #define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
 
+
+const char *keywords[] = {"int", "char", "void", "size_t",
+    "const", "if", "else", "for", "while", "do", "return", "switch", "case", "default",
+    "typedef", "struct",
+};
+#define ARRAY_LEN(arr) (sizeof((arr))/sizeof((arr)[0]))
+
 typedef struct {
+    NCURSES_COLOR_T *data;
+    size_t count;
+    size_t max_size;
+} Display_Attributes;
+
+typedef struct {
+    bool up_to_date;
+
     char *data;
     size_t count;
     size_t max_size;
+
+    Display_Attributes attr;
+
 
     // Real cursor position
     int cx;
@@ -82,6 +103,11 @@ int main(int argc, char **argv) {
     keypad(stdscr, 1);
     raw();
     noecho();
+    start_color();
+
+    init_pair(DEFAULT_COLOR, COLOR_WHITE, COLOR_BLACK);
+    init_pair(KEYWORD_COLOR, COLOR_YELLOW, COLOR_BLACK);
+
     getmaxyx(stdscr, ute.screen_height, ute.screen_width);
 #if 0
     int ch, stop = 0;
@@ -146,6 +172,7 @@ int manage_key(Editor *ute, int ch) {
         case KEY_BACKSPACE:
             buffer_remove(buffer);
             buffer->dirty = 1;
+            ute->display.up_to_date = false;
             break;
 
         default: {
@@ -163,6 +190,7 @@ int manage_key(Editor *ute, int ch) {
                     buffer_insert(buffer, ch);
                 }
                 buffer->dirty = 1;
+                ute->display.up_to_date = false;
             }
          }
     }
@@ -171,9 +199,9 @@ int manage_key(Editor *ute, int ch) {
 
 void update_display(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
-    Display *display = &ute->display;
-    display->count = 0;
     int save_cursor = buffer->cursor;
+
+    Display *display = &ute->display;
 
     move(0,0);
     // TODO: make the update_display able to scroll horizontally
@@ -189,16 +217,42 @@ void update_display(Editor *ute) {
     buffer_set_cursor(buffer, buffer_size(buffer));
     char *str = buffer->data;
 
-    for(int i = 0; i < buffer_size(buffer); i++) {
-        // Correctly render the \t
-        if(str[i] == '\t') {
-            for(size_t j = 0; j < TAB_TO_SPACE; j++) {
-                ute_da_append(display, ' ');
+    if (!display->up_to_date) {
+        display->count = 0;
+        display->attr.count = 0;
+        for(int i = 0; i < buffer_size(buffer); i++) {
+            // Correctly render the \t
+            if(str[i] == '\t') {
+                for(size_t j = 0; j < TAB_TO_SPACE; j++) {
+                    ute_da_append(display, ' ');
+                }
+            } else ute_da_append(display, str[i]);
+        }
+
+        // Set simple color scheme for C code
+        size_t i = 0;
+        while (i < display->count) {
+            bool found = false;
+            for(size_t kw = 0; kw < ARRAY_LEN(keywords) && !found; kw++) {
+                const char *keyword = keywords[kw];
+                size_t keyword_len = strlen(keywords[kw]);
+                if(i+keyword_len < display->count && strncmp(&display->data[i], keyword, keyword_len) == 0) {
+                    size_t j = 0;
+                    while(j < keyword_len) { ute_da_append(&display->attr, KEYWORD_COLOR); j++; }
+                    i+=keyword_len;
+                    found = true;
+                }
             }
-        } else ute_da_append(display, str[i]);
+            if(!found) {
+                ute_da_append(&display->attr, DEFAULT_COLOR);
+                i++;
+            }
+        }
+        display->up_to_date = true;
     }
 
     int height = ute->screen_height - STATUS_LINE_SPACE;
+
     if(cy < sy) {
         ute->scroll -= 2;
         while(ute->scroll >= 0 && str[ute->scroll] != '\n') ute->scroll--;
@@ -222,7 +276,9 @@ void update_display(Editor *ute) {
         }
         // TODO: Maybe there is a need for a buffer to print everything faster
         // There should not be any problems with printing the character if it is a new line
+        attron(COLOR_PAIR(display->attr.data[cur_char]));
         addch(display->data[cur_char]);
+        attroff(COLOR_PAIR(display->attr.data[cur_char]));
         cur_char++;
         cur_x++;
     }
