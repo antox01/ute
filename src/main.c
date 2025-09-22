@@ -67,9 +67,6 @@ typedef struct {
     size_t max_size;
 } string_builder_t;
 
-void sb_append(string_builder_t *sb, const char *str, size_t str_len);
-void sb_append_char(string_builder_t *sb, const char val);
-
 typedef struct {
     char *data;
     size_t count;
@@ -337,7 +334,6 @@ void print_command_line(Editor *ute, const char* msg) {
 string_view_t read_command_line(Editor *ute, const char* msg) {
     int start = 0;
     string_view_t ret = {0};
-    //sb_append(&ute->command_output, msg, strlen(msg));
     start = ute->command.cursor;
     print_command_line(ute, msg);
     int ch = getch();
@@ -395,7 +391,7 @@ defer:
 int write_file(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
     string_view_t sv = {0};
-    //assert(buffer->file_name != NULL && "TODO: write_file does not support command line");
+
     if(buffer->file_name == NULL) {
         sv = read_command_line(ute, "Save file: ");
         if(sv.count > 0) buffer->file_name = sv_to_cstr(sv);
@@ -426,7 +422,6 @@ int open_file(Editor *ute, char *file_name) {
     Buffer buffer = {0};
     string_view_t sv;
 
-    //assert(file_name != NULL && "ERROR: open_file does not support NULL");
     if(file_name == NULL) {
         sv = read_command_line(ute, "Open file: ");
         if(sv.count > 0) buffer.file_name = sv_to_cstr(sv);
@@ -455,28 +450,6 @@ int get_file_size(FILE *fin, size_t *size) {
     *size = end;
 
     return 1;
-}
-
-void sb_append(string_builder_t *sb, const char *str, size_t str_len) {
-    if(sb->count + str_len >= sb->max_size) {
-        size_t new_size = sb->count + str_len + 1;
-        sb->data = realloc(sb->data, new_size * sizeof(*sb->data));
-        sb->max_size = new_size;
-    }
-    memcpy(&sb->data[sb->count], str, (str_len + 1) * sizeof(*str));
-    sb->count += str_len;
-}
-
-void sb_append_char(string_builder_t *sb, const char val) {
-    if(sb->count + 1 >= sb->max_size) {
-        size_t new_size = sb->count + 2;
-        sb->data = realloc(sb->data, new_size * sizeof(*sb->data));
-        sb->max_size = new_size;
-    }
-    //memcpy(&sb->data[sb->count], str, (str_len + 1) * sizeof(*str));
-    sb->data[sb->count] = val;
-    sb->data[sb->count + 1] = '\0';
-    sb->count += 1;
 }
 
 Buffer *current_buffer(Editor *ute) {
