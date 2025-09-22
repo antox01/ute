@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include "buffer.h"
+#include "line.h"
 #include "common.h"
 
 #define MAX_STR_SIZE 256
@@ -20,12 +21,12 @@
 
 #define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
 
+#define ARRAY_LEN(arr) (sizeof((arr))/sizeof((arr)[0]))
 
-const char *keywords[] = {"int", "char", "void", "size_t",
+const char *c_keywords[] = {"int", "float", "double", "char", "void", "size_t",
     "const", "if", "else", "for", "while", "do", "return", "switch", "case", "default",
     "typedef", "struct",
 };
-#define ARRAY_LEN(arr) (sizeof((arr))/sizeof((arr)[0]))
 
 typedef struct {
     NCURSES_COLOR_T *data;
@@ -41,11 +42,15 @@ typedef struct {
     size_t max_size;
 
     Display_Attributes attr;
+    Lines lines;
 
+    // start of the scroll
+    size_t sx;
+    size_t sy;
 
     // Real cursor position
-    int cx;
-    int cy;
+    size_t cx;
+    size_t cy;
 } Display;
 
 typedef struct {
@@ -196,7 +201,7 @@ int manage_key(Editor *ute, int ch) {
 
 void update_display(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
-    int save_cursor = buffer->cursor;
+    int saved_cursor = buffer->cursor;
 
     Display *display = &ute->display;
 
@@ -217,22 +222,32 @@ void update_display(Editor *ute) {
     if (!display->up_to_date) {
         display->count = 0;
         display->attr.count = 0;
-        for(int i = 0; i < buffer_size(buffer); i++) {
+        display->lines.count = 0;
+        size_t line_start = 0;
+        for(int cur_char = 0; cur_char < buffer_size(buffer); cur_char++) {
+            if(str[cur_char] == '\n') {
+                Line line = {
+                    .start = line_start,
+                    .end = cur_char,
+                };
+                ute_da_append(&display->lines, line);
+                line_start = cur_char+1;
+            }
             // Correctly render the \t
-            if(str[i] == '\t') {
+            if(str[cur_char] == '\t') {
                 for(size_t j = 0; j < TAB_TO_SPACE; j++) {
                     ute_da_append(display, ' ');
                 }
-            } else ute_da_append(display, str[i]);
+            } else ute_da_append(display, str[cur_char]);
         }
 
         // Set simple color scheme for C code
         size_t i = 0;
         while (i < display->count) {
             bool found = false;
-            for(size_t kw = 0; kw < ARRAY_LEN(keywords) && !found; kw++) {
-                const char *keyword = keywords[kw];
-                size_t keyword_len = strlen(keywords[kw]);
+            for(size_t kw = 0; kw < ARRAY_LEN(c_keywords) && !found; kw++) {
+                const char *keyword = c_keywords[kw];
+                size_t keyword_len = strlen(c_keywords[kw]);
                 if(i+keyword_len < display->count && strncmp(&display->data[i], keyword, keyword_len) == 0) {
                     size_t j = 0;
                     while(j < keyword_len) { ute_da_append(&display->attr, KEYWORD_COLOR); j++; }
@@ -279,15 +294,15 @@ void update_display(Editor *ute) {
         cur_char++;
         cur_x++;
     }
-    
+
     //TODO: update_display managing the reset of the cursor
     print_status_line(ute);
     print_command_line(ute, "");
     refresh();
 
-    buffer_set_cursor(buffer, save_cursor);
+    buffer_set_cursor(buffer, saved_cursor);
 
-    //buffer_posyx(buffer, ute->scroll, &sy, &sx);
+    buffer_posyx(buffer, ute->scroll, &sy, &sx);
     cur_y = cy - sy;
     if(cur_y >= height) cur_y = height - 1;
     move(cur_y, cx);
@@ -306,7 +321,8 @@ void print_status_line(Editor *ute) {
     } else {
         left_len = snprintf(str, MAX_STR_SIZE, "%s", "[New File]");
     }
-    if(buffer->dirty && left_len < MAX_STR_SIZE - 1) str[left_len++] = '+';
+    if(buffer->dirty && left_len < MAX_STR_SIZE - 1)
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", " [+]");
 
     memset(&str[left_len], ' ', sline_right_start - left_len);
     int right_len = snprintf(&str[sline_right_start], MAX_STR_SIZE - sline_right_start,
