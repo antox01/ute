@@ -4,7 +4,9 @@ OUTDIR=out
 IFLAGS=-I./include
 CFLAGS=-Wall -Wextra -lncurses
 
-OUT_FILES=out/line.o out/buffer.o out/main.o
+# OUT_FILES+=out/line.o
+OUT_FILES+=out/buffer.o
+OUT_FILES+=out/main.o
 
 all: $(OUTDIR) ute
 
