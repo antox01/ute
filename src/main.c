@@ -6,7 +6,6 @@
 #include <assert.h>
 #include <unistd.h>
 #include "buffer.h"
-#include "line.h"
 #include "common.h"
 
 #define MAX_STR_SIZE 256
@@ -42,11 +41,10 @@ typedef struct {
     size_t max_size;
 
     Display_Attributes attr;
-    Lines lines;
 
     // start of the scroll
-    size_t sx;
-    size_t sy;
+    int sx;
+    int sy;
 
     // Real cursor position
     size_t cx;
@@ -215,41 +213,20 @@ void update_display(Editor *ute) {
     clear();
 
     buffer_set_cursor(buffer, buffer_size(buffer));
-    char *str = buffer->data;
 
     if (!display->up_to_date) {
-        display->count = 0;
         display->attr.count = 0;
-        display->lines.count = 0;
 
         buffer_parse_line(buffer);
-        for(int cur_char = 0; cur_char < buffer_size(buffer); cur_char++) {
-            // Correctly render the \t
-            if(str[cur_char] == '\t') {
-                for(size_t j = 0; j < TAB_TO_SPACE; j++) {
-                    ute_da_append(display, ' ');
-                }
-            } else ute_da_append(display, str[cur_char]);
-        }
 
         // Set simple color scheme for C code
-        size_t i = 0;
-        size_t line_start = 0;
-        while (i < display->count) {
-            if(display->data[i] == '\n') {
-                Line line = {
-                    .start = line_start,
-                    .end = i,
-                };
-                ute_da_append(&display->lines, line);
-                line_start = i+1;
-            }
-
+        int i = 0;
+        while (i < buffer_size(buffer)) {
             bool found = false;
             for(size_t kw = 0; kw < ARRAY_LEN(c_keywords) && !found; kw++) {
                 const char *keyword = c_keywords[kw];
                 size_t keyword_len = strlen(c_keywords[kw]);
-                if(i+keyword_len < display->count && strncmp(&display->data[i], keyword, keyword_len) == 0) {
+                if(i+keyword_len < (size_t) buffer_size(buffer) && strncmp(&buffer->data[i], keyword, keyword_len) == 0) {
                     size_t j = 0;
                     while(j < keyword_len) { ute_da_append(&display->attr, KEYWORD_COLOR); j++; }
                     i+=keyword_len;
@@ -260,14 +237,6 @@ void update_display(Editor *ute) {
                 ute_da_append(&display->attr, DEFAULT_COLOR);
                 i++;
             }
-        }
-        if(line_start < i) {
-            Line line = {
-                .start = line_start,
-                .end = i,
-            };
-            ute_da_append(&display->lines, line);
-            line_start = i+1;
         }
         display->up_to_date = true;
     }
@@ -285,24 +254,34 @@ void update_display(Editor *ute) {
     if(cx < display->sx) display->sx = cx;
     if(width <= cx - display->sx) display->sx = cx - width + 1;
 
-    int cur_char = buffer->lines.data[display->sy].start + display->sx;
     int cur_x = 0;
     int cur_y = 0;
 
+    display->count = 0;
+
     NCURSES_COLOR_T active_attribute = DEFAULT_COLOR;
     attrset(COLOR_PAIR(active_attribute));
-    for(int i = 0; i < height && i + display->sy < display->lines.count; i++) {
-        Line line = display->lines.data[i+display->sy];
+    for(size_t i = 0; i < (size_t) height && i + display->sy < buffer->lines.count; i++) {
+        Line line = buffer->lines.data[i+display->sy];
         move(i, 0);
-        int curr_char = line.start + display->sx;
+        size_t curr_char = line.start + display->sx;
 
         for(int j = 0; j < width && curr_char < line.end; j++, curr_char++) {
             NCURSES_COLOR_T new_attribute = display->attr.data[curr_char];
             if(new_attribute != active_attribute) {
-                attrset(COLOR_PAIR(new_attribute));
                 active_attribute = new_attribute;
+                addnstr(display->data, display->count);
+                display->count = 0;
+                attrset(COLOR_PAIR(new_attribute));
             }
-            addch(display->data[curr_char]);
+            if(buffer->data[curr_char] == '\t') {
+                for(int ntab = 0; ntab < TAB_TO_SPACE; ntab++)
+                    ute_da_append(display, ' ');
+            } else ute_da_append(display, buffer->data[curr_char]);
+        }
+        if(display->count > 0) {
+            addnstr(display->data, display->count);
+            display->count = 0;
         }
     }
 
