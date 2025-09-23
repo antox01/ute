@@ -46,7 +46,7 @@ int buffer_size(Buffer *gb) {
 }
 
 void buffer_right(Buffer *gb) {
-    if(gb->gap_end < gb->capacity) gb->data[gb->cursor++] = gb->data[gb->gap_end++];
+    if(gb->gap_end < gb->capacity - 1) gb->data[gb->cursor++] = gb->data[gb->gap_end++];
 }
 
 void buffer_left(Buffer *gb) {
@@ -123,6 +123,12 @@ void buffer_backward_word(Buffer *buffer) {
 
 void buffer_posyx(Buffer *gb, int pos, int *cy, int *cx) {
     int line = 0;
+    if(gb->lines.count == 0) {
+        *cy = 0;
+        *cx = 0;
+        return;
+    }
+
     for(; line < gb->lines.count && gb->lines.data[line].end < pos; line++);
 
     *cy = line;
@@ -148,7 +154,7 @@ void buffer_parse_line(Buffer *gb) {
     if(line_start < cur_char) {
         Line line = {
             .start = line_start,
-            .end = cur_char,
+            .end = cur_char - 1,
         };
         ute_da_append(&gb->lines, line);
     }

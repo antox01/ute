@@ -103,6 +103,7 @@ int main(int argc, char **argv) {
     keypad(stdscr, 1);
     raw();
     noecho();
+    cbreak();
     start_color();
 
     init_pair(DEFAULT_COLOR, COLOR_WHITE, COLOR_BLACK);
@@ -210,9 +211,8 @@ void update_display(Editor *ute) {
     Display *display = &ute->display;
 
     // TODO: try to parse the buffer per line, to have a better management of the scrolls
-    clear();
 
-    buffer_set_cursor(buffer, buffer_size(buffer));
+    buffer_set_cursor(buffer, buffer_size(buffer) - 1);
 
     if (!display->up_to_date) {
         display->attr.count = 0;
@@ -265,8 +265,8 @@ void update_display(Editor *ute) {
         Line line = buffer->lines.data[i+display->sy];
         move(i, 0);
         size_t curr_char = line.start + display->sx;
-
-        for(int j = 0; j < width && curr_char < line.end; j++, curr_char++) {
+        int j = 0;
+        while(j < width && curr_char < line.end) {
             NCURSES_COLOR_T new_attribute = display->attr.data[curr_char];
             if(new_attribute != active_attribute) {
                 active_attribute = new_attribute;
@@ -278,7 +278,15 @@ void update_display(Editor *ute) {
                 for(int ntab = 0; ntab < TAB_TO_SPACE; ntab++)
                     ute_da_append(display, ' ');
             } else ute_da_append(display, buffer->data[curr_char]);
+
+            j++;
+            curr_char++;
         }
+        // NOTE: manually cleaning the screen
+        // This solved the problem of the editor feeling too slow
+        // when displaying stuff on the screen
+        while(j++ < width) ute_da_append(display, ' ');
+
         if(display->count > 0) {
             addnstr(display->data, display->count);
             display->count = 0;
@@ -297,6 +305,7 @@ void update_display(Editor *ute) {
     cur_x = cx - display->sx;
     if(cur_y >= height) cur_y = height - 1;
     move(cur_y, cur_x);
+    refresh();
 }
 
 void print_status_line(Editor *ute) {
@@ -328,14 +337,19 @@ void print_status_line(Editor *ute) {
 
 void print_command_line(Editor *ute, const char* msg) {
     int start = ute->command.cursor;
+    Display *display = &ute->display;
     move(ute->screen_height - 1, 0);
     if(ute->command.capacity > 0) {
         while(start >= 0 && ute->command.data[start] != '\n') start--;
         start++;
     }
     assert(start >= 0 && "Impossible");
-    if(msg != NULL && strlen(msg) > 0) addnstr(msg, strlen(msg));
-    addnstr(&ute->command.data[start], (int)ute->command.cursor - start);
+    ute->display.count = 0;
+    int msg_len = strlen(msg);
+    if(msg != NULL &&  msg_len > 0) ute_da_append_many(display, msg, msg_len);
+    ute_da_append_many(display, &ute->command.data[start], ((int)ute->command.cursor - start));
+    while(display->count < (size_t) ute->screen_width) ute_da_append(display, ' ');
+    addnstr(display->data, ute->display.count);
 }
 
 string_view_t read_command_line(Editor *ute, const char* msg) {
