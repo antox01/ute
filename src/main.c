@@ -211,8 +211,6 @@ void update_display(Editor *ute) {
 
     Display *display = &ute->display;
 
-    move(0,0);
-    // TODO: make the update_display able to scroll horizontally
     // TODO: try to parse the buffer per line, to have a better management of the scrolls
     clear();
 
@@ -276,51 +274,50 @@ void update_display(Editor *ute) {
 
     // Check to see if I need to scroll
     int cy, cx;
-    int sy, sx;
     buffer_posyx(buffer, saved_cursor, &cy, &cx);
-    buffer_posyx(buffer, ute->scroll, &sy, &sx);
 
+    int width = ute->screen_width;
     int height = ute->screen_height - STATUS_LINE_SPACE;
 
-    if(cy < sy) {
-        ute->scroll -= 2;
-        while(ute->scroll >= 0 && str[ute->scroll] != '\n') ute->scroll--;
-        ute->scroll++;
-    } else if(height <= cy - sy) {
-        while(ute->scroll < buffer->cursor && str[ute->scroll] != '\n') ute->scroll++;
-        ute->scroll++;
-    }
-    
-    int cur_char = ute->scroll;
+    if(cy < display->sy) display->sy--;
+    else if(height <= cy - display->sy) display->sy++;
+
+    if(cx < display->sx) display->sx = cx;
+    if(width <= cx - display->sx) display->sx = cx - width + 1;
+
+    int cur_char = buffer->lines.data[display->sy].start + display->sx;
     int cur_x = 0;
     int cur_y = 0;
 
-    buffer_posyx(buffer, ute->scroll, &sy, &sx);
-    
     NCURSES_COLOR_T active_attribute = DEFAULT_COLOR;
-    for(int i = 0; i < height && i + sy < display->lines.count; i++) {
-        Line line = display->lines.data[i+sy];
-        //move(i, 0);
-        for(int j = 0, curr_char = line.start; j < ute->screen_width && curr_char <= line.end; j++, curr_char++) {
+    attrset(COLOR_PAIR(active_attribute));
+    for(int i = 0; i < height && i + display->sy < display->lines.count; i++) {
+        Line line = display->lines.data[i+display->sy];
+        move(i, 0);
+        int curr_char = line.start + display->sx;
+
+        for(int j = 0; j < width && curr_char < line.end; j++, curr_char++) {
             NCURSES_COLOR_T new_attribute = display->attr.data[curr_char];
             if(new_attribute != active_attribute) {
-                attroff(COLOR_PAIR(active_attribute));
-                attron(COLOR_PAIR(new_attribute));
+                attrset(COLOR_PAIR(new_attribute));
                 active_attribute = new_attribute;
             }
             addch(display->data[curr_char]);
         }
     }
+
     buffer_set_cursor(buffer, saved_cursor);
+    attroff(COLOR_PAIR(active_attribute));
 
     //TODO: update_display managing the reset of the cursor
     print_status_line(ute);
     print_command_line(ute, "");
     refresh();
 
-    cur_y = cy - sy;
+    cur_y = cy - display->sy;
+    cur_x = cx - display->sx;
     if(cur_y >= height) cur_y = height - 1;
-    move(cur_y, cx);
+    move(cur_y, cur_x);
 }
 
 void print_status_line(Editor *ute) {
