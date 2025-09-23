@@ -152,6 +152,12 @@ int manage_key(Editor *ute, int ch) {
         case KEY_CTRL('o'):
             open_file(ute, NULL);
             break;
+        case KEY_CTRL('f'):
+            buffer_forward_word(buffer);
+            break;
+        case KEY_CTRL('b'):
+            buffer_backward_word(buffer);
+            break;
         case KEY_RESIZE:
             getmaxyx(stdscr, ute->screen_height, ute->screen_width);
             break;
