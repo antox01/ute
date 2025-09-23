@@ -1,6 +1,7 @@
 #ifndef BUFFER_H_DEF
 #define BUFFER_H_DEF
 
+#include "line.h"
 #include "common.h"
 
 #define BUF_CAPACITY 1024
@@ -12,6 +13,8 @@ typedef struct buffer_s_ {
     int gap_end;
     int dirty;
     char *file_name;
+
+    Lines lines;
 } Buffer;
 
 
@@ -43,5 +46,6 @@ int buffer_size(Buffer *gb);
 char* buffer_str(Buffer *gb);
 
 void buffer_posyx(Buffer *gb, int pos, int *cy, int *cx);
+void buffer_parse_line(Buffer *gb);
 
 #endif//BUFFER_H_DEF

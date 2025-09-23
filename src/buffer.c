@@ -73,43 +73,31 @@ char* buffer_str(Buffer *gb) {
 }
 
 void buffer_prev_line(Buffer *gb) {
-    int cl_pos = gb->cursor - 1;
-    while(cl_pos >= 0 && gb->data[cl_pos] != '\n' && gb->data[cl_pos] != '\r') cl_pos--;
-    int pl_pos = cl_pos - 1;
-    while(pl_pos >= 0 && gb->data[pl_pos] != '\n' && gb->data[pl_pos] != '\r') pl_pos--;
+    int cx, cy;
+    buffer_posyx(gb, gb->cursor, &cy, &cx);
 
-    // TODO: find a way to check for the first line
-    if(cl_pos < 0) return;
-    int nc = gb->cursor - cl_pos + pl_pos;
+    // TODO: report error when cursor on the last line
+    if(cy <= 0) return;
 
-    // TODO: add error codes when messages support is implemented
-    if(nc < 0) return;
-    
-    buffer_set_cursor(gb, nc);
+    Line line = gb->lines.data[cy - 1];
+    int new_cursor = line.start + cx;
+    if(new_cursor > line.end) new_cursor = line.end;
+
+    buffer_set_cursor(gb, new_cursor);
 }
 
 void buffer_next_line(Buffer *gb) {
-    int cl_pos = gb->cursor - 1;
-    int nl_pos = gb->gap_end;
-    while(cl_pos >= 0 && gb->data[cl_pos] != '\n' && gb->data[cl_pos] != '\r') cl_pos--;
-    while(nl_pos < gb->capacity
-            && gb->data[nl_pos] != '\n' && gb->data[nl_pos] != '\r'){
-        nl_pos++;
-    }
-    int limit = nl_pos + 1;
-    while(limit < gb->capacity
-            && gb->data[limit] != '\n' &&  gb->data[limit] != '\r'){
-        limit++;
-    }
-    
-    int nc = gb->cursor - cl_pos + nl_pos;
-    if(nc > limit) {
-	nc = limit;
-    }
+    int cx, cy;
+    buffer_posyx(gb, gb->cursor, &cy, &cx);
+
     // TODO: report error when cursor on the last line
-    nc -= gb->gap_end - gb->cursor;
-    buffer_set_cursor(gb, nc);
-//    assert(0 && "TODO: Not implemented");
+    if(cy + 1 >= gb->lines.count) return;
+
+    Line line = gb->lines.data[cy + 1];
+    int new_cursor = line.start + cx;
+    if(new_cursor > line.end) new_cursor = line.end;
+
+    buffer_set_cursor(gb, new_cursor);
 }
 
 
@@ -161,14 +149,34 @@ void buffer_backward_word(Buffer *buffer) {
 }
 
 void buffer_posyx(Buffer *gb, int pos, int *cy, int *cx) {
-    int line = 0, start = 0;
-    for(int i = 0; i < pos; i++) {
-	if(gb->data[i] == '\n') {
-	    line++;
-	    start = i+1;
-	}
-    }
+    int line = 0;
+    for(; line < gb->lines.count && gb->lines.data[line].end < pos; line++);
 
     *cy = line;
-    *cx = gb->cursor - start;
+    *cx = pos - gb->lines.data[line].start;
+}
+
+void buffer_parse_line(Buffer *gb) {
+    int line_start = 0, cur_char = 0;
+    int saved_cursor = gb->cursor;
+    buffer_set_cursor(gb, buffer_size(gb));
+    while(cur_char < buffer_size(gb)) {
+        if(gb->data[cur_char] == '\n') {
+            Line line = {
+                .start = line_start,
+                .end = cur_char,
+            };
+            ute_da_append(&gb->lines, line);
+            line_start = cur_char+1;
+        }
+        cur_char++;
+    }
+    // if(line_start < cur_char) {
+    //     Line line = {
+    //         .start = line_start,
+    //         .end = cur_char,
+    //     };
+    //     ute_da_append(&gb->lines, line);
+    // }
+    buffer_set_cursor(gb, saved_cursor);
 }
