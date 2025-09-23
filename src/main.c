@@ -25,7 +25,7 @@
 
 const char *c_keywords[] = {"int", "float", "double", "char", "void", "size_t",
     "const", "if", "else", "for", "while", "do", "return", "switch", "case", "default",
-    "typedef", "struct",
+    "typedef", "struct", "break", "continue",
 };
 
 typedef struct {
@@ -210,12 +210,6 @@ void update_display(Editor *ute) {
     // TODO: try to parse the buffer per line, to have a better management of the scrolls
     clear();
 
-    // Check to see if I need to scroll
-    int cy, cx;
-    int sy, sx;
-    buffer_posyx(buffer, buffer->cursor, &cy, &cx);
-    buffer_posyx(buffer, ute->scroll, &sy, &sx);
-
     buffer_set_cursor(buffer, buffer_size(buffer));
     char *str = buffer->data;
 
@@ -223,16 +217,9 @@ void update_display(Editor *ute) {
         display->count = 0;
         display->attr.count = 0;
         display->lines.count = 0;
-        size_t line_start = 0;
+
+        buffer_parse_line(buffer);
         for(int cur_char = 0; cur_char < buffer_size(buffer); cur_char++) {
-            if(str[cur_char] == '\n') {
-                Line line = {
-                    .start = line_start,
-                    .end = cur_char,
-                };
-                ute_da_append(&display->lines, line);
-                line_start = cur_char+1;
-            }
             // Correctly render the \t
             if(str[cur_char] == '\t') {
                 for(size_t j = 0; j < TAB_TO_SPACE; j++) {
@@ -243,7 +230,17 @@ void update_display(Editor *ute) {
 
         // Set simple color scheme for C code
         size_t i = 0;
+        size_t line_start = 0;
         while (i < display->count) {
+            if(display->data[i] == '\n') {
+                Line line = {
+                    .start = line_start,
+                    .end = i,
+                };
+                ute_da_append(&display->lines, line);
+                line_start = i+1;
+            }
+
             bool found = false;
             for(size_t kw = 0; kw < ARRAY_LEN(c_keywords) && !found; kw++) {
                 const char *keyword = c_keywords[kw];
@@ -260,8 +257,22 @@ void update_display(Editor *ute) {
                 i++;
             }
         }
+        if(line_start < i) {
+            Line line = {
+                .start = line_start,
+                .end = i,
+            };
+            ute_da_append(&display->lines, line);
+            line_start = i+1;
+        }
         display->up_to_date = true;
     }
+
+    // Check to see if I need to scroll
+    int cy, cx;
+    int sy, sx;
+    buffer_posyx(buffer, saved_cursor, &cy, &cx);
+    buffer_posyx(buffer, ute->scroll, &sy, &sx);
 
     int height = ute->screen_height - STATUS_LINE_SPACE;
 
@@ -277,32 +288,30 @@ void update_display(Editor *ute) {
     int cur_char = ute->scroll;
     int cur_x = 0;
     int cur_y = 0;
-    while((size_t)cur_char < display->count && cur_y < height) {
-        if(cur_x == ute->screen_width - 1) {
-            cur_y++;
-            cur_x = 0;
-            while((size_t)cur_char < display->count && display->data[cur_char] != '\n') cur_char++;
-        } else if(str[cur_char] == '\n') {
-            cur_y++;
-            cur_x = 0;
+
+    buffer_posyx(buffer, ute->scroll, &sy, &sx);
+    
+    NCURSES_COLOR_T active_attribute = DEFAULT_COLOR;
+    for(int i = 0; i < height && i + sy < display->lines.count; i++) {
+        Line line = display->lines.data[i+sy];
+        //move(i, 0);
+        for(int j = 0, curr_char = line.start; j < ute->screen_width && curr_char <= line.end; j++, curr_char++) {
+            NCURSES_COLOR_T new_attribute = display->attr.data[curr_char];
+            if(new_attribute != active_attribute) {
+                attroff(COLOR_PAIR(active_attribute));
+                attron(COLOR_PAIR(new_attribute));
+                active_attribute = new_attribute;
+            }
+            addch(display->data[curr_char]);
         }
-        // TODO: Maybe there is a need for a buffer to print everything faster
-        // There should not be any problems with printing the character if it is a new line
-        attron(COLOR_PAIR(display->attr.data[cur_char]));
-        addch(display->data[cur_char]);
-        attroff(COLOR_PAIR(display->attr.data[cur_char]));
-        cur_char++;
-        cur_x++;
     }
+    buffer_set_cursor(buffer, saved_cursor);
 
     //TODO: update_display managing the reset of the cursor
     print_status_line(ute);
     print_command_line(ute, "");
     refresh();
 
-    buffer_set_cursor(buffer, saved_cursor);
-
-    buffer_posyx(buffer, ute->scroll, &sy, &sx);
     cur_y = cy - sy;
     if(cur_y >= height) cur_y = height - 1;
     move(cur_y, cx);
