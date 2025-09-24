@@ -261,7 +261,8 @@ void update_display(Editor *ute) {
 
     NCURSES_COLOR_T active_attribute = DEFAULT_COLOR;
     attrset(COLOR_PAIR(active_attribute));
-    for(size_t i = 0; i < (size_t) height && i + display->sy < buffer->lines.count; i++) {
+    size_t i = 0;
+    while(i < (size_t) height && i + display->sy < buffer->lines.count) {
         Line line = buffer->lines.data[i+display->sy];
         move(i, 0);
         size_t curr_char = line.start + display->sx;
@@ -291,6 +292,21 @@ void update_display(Editor *ute) {
             addnstr(display->data, display->count);
             display->count = 0;
         }
+        i++;
+    }
+    // NOTE: clearing the remaining part of the screen
+    // if the text does not occupy it fully
+    while(i < (size_t) height) {
+        display->count = 0;
+        move(i, 0);
+        for(int j = 0; j < width; j++) ute_da_append(display, ' ');
+        addnstr(display->data, display->count);
+        i++;
+    }
+
+    // NOTE: take into account characters of different sizes
+    for(int curr_char = buffer->lines.data[cy].start; curr_char < saved_cursor; curr_char++) {
+        if(buffer->data[curr_char] == '\t') cx += TAB_TO_SPACE - 1;
     }
 
     buffer_set_cursor(buffer, saved_cursor);
@@ -503,8 +519,6 @@ char *sv_to_cstr(string_view_t sv) {
 }
 
 
-// TODO: Cursor needs to take into account tab characters when moving
-// TODO: Parse Buffer by line, to optimize some things
 // TODO: Use a Buffer structure for the command line, to have automatic history
 // TODO: Improve keybinding management
 // TODO: C syntax highlighting
