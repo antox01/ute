@@ -39,16 +39,16 @@
 /* ute_da_append_many:
  * Macro to append many elements to a dynamic array.
  */
-#define ute_da_append_many(da, items, count) \
+#define ute_da_append_many(da, items, size) \
     do {\
-        if((da)->count + (count) >= (da)->max_size) { \
-            size_t max_size = (da)->count + (count); \
+        if((da)->count + (size) >= (da)->max_size) { \
+            size_t max_size = (da)->count + (size); \
             (da)->data = realloc((da)->data, max_size * sizeof(*(da)->data)); \
             assert((da)->data != NULL); \
             (da)->max_size = max_size; \
         } \
-        memcpy(&(da)->data[(da)->count], (items), (count)*sizeof(*(da)->data));\
-        (da)->count += (count); \
+        memcpy(&(da)->data[(da)->count], (items), (size)*sizeof(*(da)->data));\
+        (da)->count += (size); \
     } while(0)
 
 #endif // COMMON_H
