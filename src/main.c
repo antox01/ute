@@ -14,6 +14,7 @@
 #define TAB_TO_SPACE 4
 #define EXPAND_TAB false
 #define KEY_CTRL(x) (x & 0x1F)
+#define KEY_ESCAPE 0x1B
 
 #define DEFAULT_COLOR 1
 #define KEYWORD_COLOR 2
@@ -152,10 +153,8 @@ int manage_key(Editor *ute, int ch) {
             open_file(ute, NULL);
             break;
         case KEY_CTRL('f'):
-            buffer_forward_word(buffer);
             break;
         case KEY_CTRL('b'):
-            buffer_backward_word(buffer);
             break;
         case KEY_RESIZE:
             getmaxyx(stdscr, ute->screen_height, ute->screen_width);
@@ -182,6 +181,23 @@ int manage_key(Editor *ute, int ch) {
             ute->display.up_to_date = false;
             break;
 
+        case KEY_ESCAPE:
+            timeout(0);
+            int c = getch();
+            if(c != ERR) {
+                switch(c) {
+                    case 'f':
+                        buffer_forward_word(buffer);
+                        break;
+                    case 'b':
+                        buffer_backward_word(buffer);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            timeout(-1);
+            break;
         default: {
             //TODO: manage all ctrl keybinding
 
