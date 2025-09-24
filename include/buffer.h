@@ -47,5 +47,6 @@ char* buffer_str(Buffer *gb);
 
 void buffer_posyx(Buffer *gb, int pos, int *cy, int *cx);
 void buffer_parse_line(Buffer *gb);
+void buffer_search_word(Buffer *gb, char *word, size_t word_len);
 
 #endif//BUFFER_H_DEF

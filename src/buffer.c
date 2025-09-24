@@ -164,3 +164,21 @@ void buffer_parse_line(Buffer *gb) {
     }
     buffer_set_cursor(gb, saved_cursor);
 }
+
+void buffer_search_word(Buffer *gb, char *word, size_t word_len) {
+    int saved_cursor = gb->cursor;
+    int cur_char = 0;
+    int gb_size = buffer_size(gb);
+    buffer_set_cursor(gb, gb_size);
+    while(cur_char < gb_size) {
+        if(cur_char + word_len < gb_size && strncmp(&gb->data[cur_char], word, word_len) == 0) {
+            break;
+        }
+        cur_char++;
+    }
+    if(cur_char < gb_size) {
+        buffer_set_cursor(gb, cur_char);
+    } else {
+        buffer_set_cursor(gb, saved_cursor);
+    }
+}

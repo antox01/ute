@@ -153,7 +153,11 @@ int manage_key(Editor *ute, int ch) {
             open_file(ute, NULL);
             break;
         case KEY_CTRL('f'):
+        {
+            string_view_t word = read_command_line(ute, "Search: ");
+            buffer_search_word(buffer, word.data, word.count);
             break;
+        }
         case KEY_CTRL('b'):
             break;
         case KEY_RESIZE:

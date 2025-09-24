@@ -22,7 +22,7 @@ out/main.o: src/main.c
 out/line.o: src/line.c
 	$(CC) -g -c -o out/line.o src/line.c $(IFLAGS)
 
-out/buffer.o: src/buffer.c
+out/buffer.o: src/buffer.c include/buffer.h
 	$(CC) -g -c -o out/buffer.o src/buffer.c $(IFLAGS)
 
 $(OUTDIR):
