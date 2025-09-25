@@ -80,7 +80,7 @@ void buffer_prev_line(Buffer *gb) {
     if(cy <= 0) return;
 
     Line line = gb->lines.data[cy - 1];
-    int new_cursor = line.start + cx;
+    size_t new_cursor = line.start + cx;
     if(new_cursor > line.end) new_cursor = line.end;
 
     buffer_set_cursor(gb, new_cursor);
@@ -91,10 +91,10 @@ void buffer_next_line(Buffer *gb) {
     buffer_posyx(gb, gb->cursor, &cy, &cx);
 
     // TODO: report error when cursor on the last line
-    if(cy + 1 >= gb->lines.count) return;
+    if((size_t)cy + 1 >= gb->lines.count) return;
 
     Line line = gb->lines.data[cy + 1];
-    int new_cursor = line.start + cx;
+    size_t new_cursor = line.start + cx;
     if(new_cursor > line.end) new_cursor = line.end;
 
     buffer_set_cursor(gb, new_cursor);
@@ -121,8 +121,8 @@ void buffer_backward_word(Buffer *buffer) {
     buffer_right(buffer);
 }
 
-void buffer_posyx(Buffer *gb, int pos, int *cy, int *cx) {
-    int line = 0;
+void buffer_posyx(Buffer *gb, size_t pos, int *cy, int *cx) {
+    size_t line = 0;
     if(gb->lines.count == 0) {
         *cy = 0;
         *cx = 0;

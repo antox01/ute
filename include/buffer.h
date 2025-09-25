@@ -45,7 +45,7 @@ void buffer_set_cursor(Buffer *gb, int cursor);
 int buffer_size(Buffer *gb);
 char* buffer_str(Buffer *gb);
 
-void buffer_posyx(Buffer *gb, int pos, int *cy, int *cx);
+void buffer_posyx(Buffer *gb, size_t pos, int *cy, int *cx);
 void buffer_parse_line(Buffer *gb);
 
 #endif//BUFFER_H_DEF
