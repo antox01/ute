@@ -7,7 +7,8 @@
 
 void buffer_free(Buffer *gb) {
     if(gb->file_name != NULL) free(gb->file_name);
-    free(gb->data);
+    if(gb->data != NULL) free(gb->data);
+    if(gb->lines.data != NULL) free(gb->lines.data);
 }
 
 void buffer_grow(Buffer *gb) {
@@ -46,11 +47,11 @@ int buffer_size(Buffer *gb) {
 }
 
 void buffer_right(Buffer *gb) {
-    if(gb->gap_end < gb->capacity) gb->data[gb->cursor++] = gb->data[++gb->gap_end];
+    if(gb->gap_end < gb->capacity) gb->data[gb->cursor++] = gb->data[gb->gap_end++];
 }
 
 void buffer_left(Buffer *gb) {
-    if(0 < gb->cursor) gb->data[gb->gap_end--] = gb->data[--gb->cursor];
+    if(0 < gb->cursor) gb->data[--gb->gap_end] = gb->data[--gb->cursor];
 }
 
 void buffer_set_cursor(Buffer *gb, int cursor) {
