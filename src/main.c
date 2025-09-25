@@ -30,6 +30,20 @@ const char *c_keywords[] = {"int", "float", "double", "char", "void", "size_t",
 };
 
 typedef struct {
+    char *data;
+    size_t count;
+    size_t max_size;
+} String_Builder;
+
+typedef struct {
+    char *data;
+    size_t count;
+} String_View;
+
+char *sv_to_cstr(String_View sv);
+
+
+typedef struct {
     NCURSES_COLOR_T *data;
     size_t count;
     size_t max_size;
@@ -69,20 +83,7 @@ typedef struct {
 } Editor;
 
 
-typedef struct {
-    char *data;
-    size_t count;
-    size_t max_size;
-} string_builder_t;
-
-typedef struct {
-    char *data;
-    size_t count;
-} string_view_t;
-
-char *sv_to_cstr(string_view_t sv);
-
-int read_file(Buffer *buffer);
+int read_file(Editor *ute, Buffer *buffer);
 int write_file(Editor *ute);
 int open_file(Editor *ute, char *file_name);
 int get_file_size(FILE *fin, size_t *size);
@@ -90,7 +91,7 @@ int manage_key(Editor *ute, int ch);
 void update_display(Editor *ute);
 void print_status_line(Editor *ute);
 void print_command_line(Editor *ute, const char* msg);
-string_view_t read_command_line(Editor *ute, const char* msg);
+String_View read_command_line(Editor *ute, const char* msg);
 
 Buffer *current_buffer(Editor *ute);
 void buffers_next(Editor *ute);
@@ -155,6 +156,7 @@ int manage_key(Editor *ute, int ch) {
             buffer->dirty = 0;
             break;
         case KEY_CTRL('o'):
+            // TODO: print error when is not possible to open the file
             open_file(ute, NULL);
             break;
         case KEY_CTRL('f'):
@@ -272,9 +274,13 @@ void update_display(Editor *ute) {
         display->up_to_date = true;
     }
 
+    UTE_ASSERT(buffer->lines.count > 0, "ERROR: buffer->lines.count cannot be 0");
+
     // Check to see if I need to scroll
     int cy, cx;
     buffer_posyx(buffer, saved_cursor, &cy, &cx);
+
+    UTE_ASSERT(cx >= 0 && cy >= 0, "ERROR: got cx or cy negative");
 
     int width = ute->screen_width;
     int height = ute->screen_height - STATUS_LINE_SPACE;
@@ -390,7 +396,7 @@ void print_command_line(Editor *ute, const char* msg) {
         while(start >= 0 && ute->command.data[start] != '\n') start--;
         start++;
     }
-    assert(start >= 0 && "Impossible");
+    UTE_ASSERT(start >= 0, "Impossible");
     ute->display.count = 0;
     int msg_len = strlen(msg);
     if(msg != NULL &&  msg_len > 0) ute_da_append_many(display, msg, msg_len);
@@ -402,9 +408,9 @@ void print_command_line(Editor *ute, const char* msg) {
     move(ute->screen_height - 1, command_cx);
 }
 
-string_view_t read_command_line(Editor *ute, const char* msg) {
+String_View read_command_line(Editor *ute, const char* msg) {
     int start = 0;
-    string_view_t ret = {0};
+    String_View ret = {0};
     start = ute->command.cursor;
     print_command_line(ute, msg);
     int ch = getch();
@@ -418,7 +424,7 @@ string_view_t read_command_line(Editor *ute, const char* msg) {
         ch = getch();
     }
     if(ch != KEY_CTRL('c')) {
-        ret = (string_view_t){
+        ret = (String_View){
             .data = &ute->command.data[start],
             .count = ute->command.cursor - start,
         };
@@ -437,13 +443,22 @@ char *shift_args(int *argc, char ***argv) {
     return arg;
 }
 
-int read_file(Buffer *buffer) {
-//    assert(0 && "TODO: read_file not implemented");
+int read_file(Editor *ute, Buffer *buffer) {
     size_t file_size;
     int ret = 1;
+    size_t cwd_lenght = strlen(ute->cwd);
+    size_t filename_lenght = strlen(buffer->file_name);
 
-    FILE *fin = fopen(buffer->file_name, "r");
+    String_Builder sb = {0};
+    ute_da_append_many(&sb, ute->cwd, cwd_lenght);
+    ute_da_append(&sb, '/');
+    ute_da_append_many(&sb, buffer->file_name, filename_lenght);
+    ute_da_append(&sb, 0);
+
+    FILE *fin = fopen(sb.data, "r");
     char str_buf[MAX_STR_SIZE];
+
+    if(fin == NULL) ret_defer(0);
 
     if(!get_file_size(fin, &file_size)) ret_defer(0);
 
@@ -455,13 +470,14 @@ int read_file(Buffer *buffer) {
 
     buffer_set_cursor(buffer, 0);
 defer:
-    fclose(fin);
+    if(sb.data) free(sb.data);
+    if(fin) fclose(fin);
     return ret;
 }
 
 int write_file(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
-    string_view_t sv = {0};
+    String_View sv = {0};
 
     if(buffer->file_name == NULL) {
         sv = read_command_line(ute, "Save file: ");
@@ -491,7 +507,7 @@ int write_file(Editor *ute) {
 int open_file(Editor *ute, char *file_name) {
     int ret = 1;
     Buffer buffer = {0};
-    string_view_t sv;
+    String_View sv;
 
     if(file_name == NULL) {
         sv = read_command_line(ute, "Open file: ");
@@ -503,11 +519,10 @@ int open_file(Editor *ute, char *file_name) {
         return 0;
     }
 
-    buffer.file_name = file_name;
-
-    ret = read_file(&buffer);
+    ret = read_file(ute, &buffer);
     if (ret) {
         ute->buffer = buffer;
+        ute->display.up_to_date = false;
     }
     return ret;
 }
@@ -524,7 +539,7 @@ int get_file_size(FILE *fin, size_t *size) {
 }
 
 Buffer *current_buffer(Editor *ute) {
-//    assert(0 && "ERROR: current_buffer not implemented");
+//    UTE_ASSERT(0 , "ERROR: current_buffer not implemented");
     return &ute->buffer;
     /* if (ute->buffers.count == 0) { */
     /*     return NULL; */
@@ -534,28 +549,29 @@ Buffer *current_buffer(Editor *ute) {
 
 void buffers_next(Editor *ute) {
     (void) ute;
-    assert(0 && "ERROR: buffers_next not implemented");
+    UTE_ASSERT(0, "ERROR: buffers_next not implemented");
     //ute->curr_buffer = (ute->curr_buffer + 1) % ute->buffers.count;
 }
 
 void buffers_prev(Editor *ute) {
     (void) ute;
-    assert(0 && "ERROR: buffers_next not implemented");
+    UTE_ASSERT(0, "ERROR: buffers_next not implemented");
     //ute->curr_buffer = (ute->curr_buffer - 1 + ute->buffers.count) % ute->buffers.count;
 }
 
-char *sv_to_cstr(string_view_t sv) {
-    string_builder_t sb = {0};
+char *sv_to_cstr(String_View sv) {
+    String_Builder sb = {0};
     char *data = sv.data;
     size_t count = sv.count;
     ute_da_append_many(&sb, data, count);
+    ute_da_append(&sb, 0);
     return sb.data;
 }
 
 void buffer_search_word(Editor *ute) {
     Buffer *gb = current_buffer(ute);
     int saved_cursor = gb->cursor;
-    string_view_t query = {0};
+    String_View query = {0};
     int start = ute->command.cursor;
 
     int quit = 0;

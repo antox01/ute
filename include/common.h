@@ -14,16 +14,17 @@
 
 #define max(x,y) (x) > (y) ? (x) : (y)
 
+#define UTE_ASSERT(cond, msg) \
+    do {\
+        if((cond)) break;\
+        endwin();\
+        fprintf(stderr, "%s:%d:%s\n", __FILE__, __LINE__, msg); \
+        abort();\
+    } while (0)
+
 /* ute_da_append:
  * Macro to append an element to a dynamic array.
  */
-#define ute_da(type, name) \
-    typedef struct {\
-        type *data;\
-        size_t count;\
-        size_t max_size;\
-    } name
-
 #define ute_da_append(da,item) \
     do {\
         if((da)->count + 1 >= (da)->max_size) { \
@@ -50,5 +51,7 @@
         memcpy(&(da)->data[(da)->count], (items), (size)*sizeof(*(da)->data));\
         (da)->count += (size); \
     } while(0)
+
+
 
 #endif // COMMON_H

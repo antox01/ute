@@ -17,9 +17,11 @@ typedef struct buffer_s_ {
     Lines lines;
 } Buffer;
 
-
-
-ute_da(Buffer, Buffers);
+typedef struct {
+    Buffer *data;
+    size_t count;
+    size_t max_size;
+} Buffers;
 
 
 /* Buffer buffer_init(int width, int height); */
@@ -31,8 +33,6 @@ void buffer_free(Buffer *gb);
 
 void buffer_prev_line(Buffer *buffer);
 void buffer_next_line(Buffer *buffer);
-/* void buffer_forward(Buffer *buffer); */
-/* void buffer_backward(Buffer *buffer); */
 void buffer_forward_word(Buffer *buffer);
 void buffer_backward_word(Buffer *buffer);
 void buffer_right(Buffer *gb);
@@ -41,7 +41,6 @@ void buffer_remove(Buffer *gb);
 void buffer_insert(Buffer *gb, char c);
 void buffer_insert_str(Buffer *gb, char *str, int size);
 void buffer_set_cursor(Buffer *gb, int cursor);
-/* void buffer_add_char_cl(Buffer_ *buffer, char ch); */
 int buffer_size(Buffer *gb);
 char* buffer_str(Buffer *gb);
 
