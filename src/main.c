@@ -145,6 +145,10 @@ int main(int argc, char **argv) {
         update_display(&ute);
     }
     endwin();
+
+    buffer_free(&ute.buffer);
+    free(ute.display.data);
+    free(ute.display.attr.data);
     return 0;
 #endif
 }
