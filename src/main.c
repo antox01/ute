@@ -16,15 +16,18 @@
 #define KEY_CTRL(x) (x & 0x1F)
 #define KEY_ESCAPE 0x1B
 
-#define DEFAULT_COLOR 1
-#define KEYWORD_COLOR 2
-#define HIGHLIGHT_COLOR 3
+#define DEFAULT_COLOR   1
+#define KEYWORD_COLOR   2
+#define TYPE_COLOR      3
+#define HIGHLIGHT_COLOR 4
 
 #define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
 
 #define ARRAY_LEN(arr) (sizeof((arr))/sizeof((arr)[0]))
 
-const char *c_keywords[] = {"int", "float", "double", "char", "void", "size_t",
+const char *c_types[] = { "int", "float", "double", "char", "void", "size_t", };
+
+const char *c_keywords[] = {
     "const", "if", "else", "for", "while", "do", "return", "switch", "case", "default",
     "typedef", "struct", "break", "continue",
 };
@@ -114,6 +117,7 @@ int main(int argc, char **argv) {
 
     init_pair(DEFAULT_COLOR, COLOR_WHITE, COLOR_BLACK);
     init_pair(KEYWORD_COLOR, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(TYPE_COLOR, COLOR_GREEN, COLOR_BLACK);
     init_pair(HIGHLIGHT_COLOR, COLOR_BLACK, COLOR_YELLOW);
 
     getmaxyx(stdscr, ute.screen_height, ute.screen_width);
@@ -256,6 +260,16 @@ void update_display(Editor *ute) {
                     size_t j = 0;
                     while(j < keyword_len) { ute_da_append(&display->attr, KEYWORD_COLOR); j++; }
                     i+=keyword_len;
+                    found = true;
+                }
+            }
+            for(size_t kw = 0; kw < ARRAY_LEN(c_types) && !found; kw++) {
+                const char *type = c_types[kw];
+                size_t type_len = strlen(c_types[kw]);
+                if(i+type_len < (size_t) buffer_size(buffer) && strncmp(&buffer->data[i], type, type_len) == 0) {
+                    size_t j = 0;
+                    while(j < type_len) { ute_da_append(&display->attr, TYPE_COLOR); j++; }
+                    i+=type_len;
                     found = true;
                 }
             }
