@@ -18,6 +18,7 @@
 
 #define DEFAULT_COLOR 1
 #define KEYWORD_COLOR 2
+#define HIGHLIGHT_COLOR 3
 
 #define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
 
@@ -42,6 +43,9 @@ typedef struct {
     size_t max_size;
 
     Display_Attributes attr;
+
+    size_t highlight_search;
+    size_t highlight_count;
 
     // start of the scroll
     int sx;
@@ -91,6 +95,7 @@ string_view_t read_command_line(Editor *ute, const char* msg);
 Buffer *current_buffer(Editor *ute);
 void buffers_next(Editor *ute);
 void buffers_prev(Editor *ute);
+void buffer_search_word(Editor *ute);
 
 char *shift_args(int *argc, char ***argv);
 
@@ -104,11 +109,11 @@ int main(int argc, char **argv) {
     keypad(stdscr, 1);
     raw();
     noecho();
-    cbreak();
     start_color();
 
     init_pair(DEFAULT_COLOR, COLOR_WHITE, COLOR_BLACK);
     init_pair(KEYWORD_COLOR, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(HIGHLIGHT_COLOR, COLOR_BLACK, COLOR_YELLOW);
 
     getmaxyx(stdscr, ute.screen_height, ute.screen_width);
 #if 0
@@ -154,8 +159,7 @@ int manage_key(Editor *ute, int ch) {
             break;
         case KEY_CTRL('f'):
         {
-            string_view_t word = read_command_line(ute, "Search: ");
-            buffer_search_word(buffer, word.data, word.count);
+            buffer_search_word(ute);
             break;
         }
         case KEY_CTRL('b'):
@@ -258,6 +262,13 @@ void update_display(Editor *ute) {
                 i++;
             }
         }
+
+        // Highlight the searched character
+        size_t hl_it = 0;
+        while(hl_it < ute->display.highlight_count) {
+            display->attr.data[hl_it + ute->display.highlight_search] = HIGHLIGHT_COLOR;
+            hl_it++;
+        }
         display->up_to_date = true;
     }
 
@@ -268,8 +279,8 @@ void update_display(Editor *ute) {
     int width = ute->screen_width;
     int height = ute->screen_height - STATUS_LINE_SPACE;
 
-    if(cy < display->sy) display->sy--;
-    else if(height <= cy - display->sy) display->sy++;
+    if(cy < display->sy) display->sy = cy;
+    else if(height <= cy - display->sy) display->sy = cy - height + 1;
 
     if(cx < display->sx) display->sx = cx;
     if(width <= cx - display->sx) display->sx = cx - width + 1;
@@ -384,8 +395,11 @@ void print_command_line(Editor *ute, const char* msg) {
     int msg_len = strlen(msg);
     if(msg != NULL &&  msg_len > 0) ute_da_append_many(display, msg, msg_len);
     ute_da_append_many(display, &ute->command.data[start], ((int)ute->command.cursor - start));
+    int command_cx = display->count;
+
     while(display->count < (size_t) ute->screen_width) ute_da_append(display, ' ');
     addnstr(display->data, ute->display.count);
+    move(ute->screen_height - 1, command_cx);
 }
 
 string_view_t read_command_line(Editor *ute, const char* msg) {
@@ -536,6 +550,74 @@ char *sv_to_cstr(string_view_t sv) {
     size_t count = sv.count;
     ute_da_append_many(&sb, data, count);
     return sb.data;
+}
+
+void buffer_search_word(Editor *ute) {
+    Buffer *gb = current_buffer(ute);
+    int saved_cursor = gb->cursor;
+    string_view_t query = {0};
+    int start = ute->command.cursor;
+
+    int quit = 0;
+    int forward = 0;
+    int last_match = -1;
+    size_t gb_size = buffer_size(gb);
+
+    char *search_message = "Search: ";
+    print_command_line(ute, search_message);
+    while(1) {
+        // NOTE: Start the search from the current position
+        size_t cur_char = gb->cursor;
+        buffer_set_cursor(gb, gb_size);
+
+        int ch = getch();
+        switch(ch) {
+            case '\n':
+                quit = 1;
+                break;
+            case KEY_CTRL('c'):
+                // Reset the buffer when encounter C-c
+                buffer_set_cursor(gb, saved_cursor);
+                ute->command.cursor = start;
+                return;
+            case KEY_CTRL('f'):
+                forward = 1;
+                break;
+            case 127:
+            case KEY_BACKSPACE:
+                buffer_remove(&ute->command);
+                break;
+            default:
+                buffer_insert(&ute->command, ch);
+                query.data = &ute->command.data[start];
+                query.count = ute->command.cursor - start;
+        }
+        print_command_line(ute, search_message);
+        if(quit) break;
+        // Search in the buffer the word
+        while(cur_char < gb_size) {
+            if(forward && last_match == (int) cur_char) {
+                cur_char++;
+                continue;
+            }
+            if(cur_char + query.count < gb_size
+                    && strncmp(&gb->data[cur_char], query.data, query.count) == 0) {
+                ute->display.highlight_search = cur_char;
+                ute->display.highlight_count = query.count;
+                break;
+            }
+            cur_char++;
+        }
+        if(cur_char < gb_size) {
+            last_match = cur_char;
+            buffer_set_cursor(gb, cur_char);
+            ute->display.up_to_date = false;
+            update_display(ute);
+            print_command_line(ute, search_message);
+        }
+    }
+    buffer_set_cursor(gb, last_match);
+    ute->command.cursor = start;
 }
 
 
