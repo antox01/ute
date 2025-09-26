@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include "buffer.h"
 #include "common.h"
+#include "lexer.h"
 
 #define MAX_STR_SIZE 256
 #define STATUS_LINE_SPACE 2
@@ -19,11 +20,12 @@
 #define DEFAULT_COLOR   1
 #define KEYWORD_COLOR   2
 #define TYPE_COLOR      3
-#define HIGHLIGHT_COLOR 4
+#define COMMENT_COLOR   4
+#define PREPROC_COLOR   5
+#define STRING_COLOR    6
+#define HIGHLIGHT_COLOR 9
 
 #define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
-
-#define ARRAY_LEN(arr) (sizeof((arr))/sizeof((arr)[0]))
 
 const char *c_types[] = { "int", "float", "double", "char", "void", "size_t", };
 
@@ -126,6 +128,9 @@ int main(int argc, char **argv) {
     init_pair(DEFAULT_COLOR, COLOR_WHITE, COLOR_BLACK);
     init_pair(KEYWORD_COLOR, COLOR_YELLOW, COLOR_BLACK);
     init_pair(TYPE_COLOR, COLOR_GREEN, COLOR_BLACK);
+    init_pair(COMMENT_COLOR, COLOR_CYAN, COLOR_BLACK);
+    init_pair(PREPROC_COLOR, COLOR_BLUE, COLOR_BLACK);
+    init_pair(STRING_COLOR, COLOR_MAGENTA, COLOR_BLACK);
     init_pair(HIGHLIGHT_COLOR, COLOR_BLACK, COLOR_YELLOW);
 
     getmaxyx(stdscr, ute.screen_height, ute.screen_width);
@@ -252,7 +257,7 @@ void update_display(Editor *ute) {
 
     Display *display = &ute->display;
 
-    buffer_set_cursor(buffer, buffer_size(buffer) - 1);
+    buffer_set_cursor(buffer, buffer_size(buffer));
 
     if (!display->up_to_date) {
         display->attr.count = 0;
@@ -261,33 +266,36 @@ void update_display(Editor *ute) {
         UTE_ASSERT(buffer->lines.count > 0, "ERROR: buffer->lines.count cannot be 0");
         UTE_ASSERT(buffer->lines.max_size > 0, "ERROR: buffer->lines.max_size cannot be 0");
 
-        // Set simple color scheme for C code
-        int i = 0;
-        while (i < buffer_size(buffer)) {
-            bool found = false;
-            for(size_t kw = 0; kw < ARRAY_LEN(c_keywords) && !found; kw++) {
-                const char *keyword = c_keywords[kw];
-                size_t keyword_len = strlen(c_keywords[kw]);
-                if(i+keyword_len < (size_t) buffer_size(buffer) && strncmp(&buffer->data[i], keyword, keyword_len) == 0) {
-                    size_t j = 0;
-                    while(j < keyword_len) { ute_da_append(&display->attr, KEYWORD_COLOR); j++; }
-                    i+=keyword_len;
-                    found = true;
-                }
+        // Reset attribute to be the default one
+        for (size_t j = 0; j < (size_t) buffer_size(buffer); j++) ute_da_append(&display->attr, DEFAULT_COLOR);
+
+        Lexer l = lexer_init(buffer->data, buffer_size(buffer));
+        while(l.cursor < l.size) {
+            lexer_next(&l);
+            NCURSES_COLOR_T color = DEFAULT_COLOR;
+            switch(l.token.kind) {
+                case TOKEN_TYPES:
+                    color = TYPE_COLOR;
+                    break;
+                case TOKEN_KEYWORD:
+                    color = KEYWORD_COLOR;
+                    break;
+                case TOKEN_COMMENT:
+                    color = COMMENT_COLOR;
+                    break;
+                case TOKEN_STR:
+                    color = STRING_COLOR;
+                    break;
+                case TOKEN_PREPROC:
+                    color = PREPROC_COLOR;
+                    break;
+                default:
+                    color = DEFAULT_COLOR;
             }
-            for(size_t kw = 0; kw < ARRAY_LEN(c_types) && !found; kw++) {
-                const char *type = c_types[kw];
-                size_t type_len = strlen(c_types[kw]);
-                if(i+type_len < (size_t) buffer_size(buffer) && strncmp(&buffer->data[i], type, type_len) == 0) {
-                    size_t j = 0;
-                    while(j < type_len) { ute_da_append(&display->attr, TYPE_COLOR); j++; }
-                    i+=type_len;
-                    found = true;
-                }
-            }
-            if(!found) {
-                ute_da_append(&display->attr, DEFAULT_COLOR);
-                i++;
+            size_t j = 0;
+            while(j < l.token.count) {
+                display->attr.data[j + l.token.start] = color;
+                j++;
             }
         }
 

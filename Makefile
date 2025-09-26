@@ -8,7 +8,9 @@ LD_FLAGS=-lncurses
 # OUT_FILES+=out/line.o
 OUT_FILES+=out/buffer.o
 OUT_FILES+=out/main.o
+OUT_FILES+=out/lexer.o
 
+DEBUG=y
 DBG_FLAGS-$(DEBUG)+=-fsanitize=address -g
 
 all: $(OUTDIR) ute
@@ -27,6 +29,9 @@ out/line.o: src/line.c
 
 out/buffer.o: src/buffer.c include/buffer.h include/common.h
 	$(CC) $(DBG_FLAGS-y) -c -o out/buffer.o src/buffer.c $(CFLAGS) $(IFLAGS)
+
+out/lexer.o: src/lexer.c include/lexer.h include/common.h
+	$(CC) $(DBG_FLAGS-y) -c -o out/lexer.o src/lexer.c $(CFLAGS) $(IFLAGS)
 
 $(OUTDIR):
 	mkdir -p $(OUTDIR)

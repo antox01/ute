@@ -16,6 +16,8 @@
 
 #define max(x,y) (x) > (y) ? (x) : (y)
 
+#define ARRAY_LEN(arr) (sizeof((arr))/sizeof((arr)[0]))
+
 #define UTE_ASSERT(cond, msg) \
     do {\
         if((cond)) break;\
