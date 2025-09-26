@@ -86,10 +86,11 @@ typedef struct {
 } Editor;
 
 
-int read_file(Editor *ute, Buffer *buffer);
-int write_file(Editor *ute);
+// File management functions
+int read_file(Buffer *buffer, String_View cwd);
 int open_file(Editor *ute, char *file_name);
 int get_file_size(FILE *fin, size_t *size);
+
 int manage_key(Editor *ute, int ch);
 void update_display(Editor *ute);
 void print_status_line(Editor *ute);
@@ -97,9 +98,16 @@ void print_command_line(Editor *ute, const char* msg);
 String_View read_command_line(Editor *ute, const char* msg);
 
 Buffer *current_buffer(Editor *ute);
+
 void buffers_next(Editor *ute);
 void buffers_prev(Editor *ute);
-void buffer_search_word(Editor *ute);
+
+// TODO: make this functions commands of the editor
+// to be called when it is possible to input commands
+// in the command buffer
+void ute_search_word(Editor *ute);
+int ute_open(Editor *ute);
+int ute_write(Editor *ute);
 
 char *shift_args(int *argc, char ***argv);
 
@@ -147,6 +155,7 @@ int main(int argc, char **argv) {
     endwin();
 
     buffer_free(&ute.buffer);
+    buffer_free(&ute.command);
     free(ute.display.data);
     free(ute.display.attr.data);
     return 0;
@@ -160,16 +169,15 @@ int manage_key(Editor *ute, int ch) {
         case KEY_CTRL('c'):
             return 1;
         case KEY_CTRL('s'):
-            write_file(ute);
-            buffer->dirty = 0;
+            ute_write(ute);
             break;
         case KEY_CTRL('o'):
             // TODO: print error when is not possible to open the file
-            open_file(ute, NULL);
+            ute_open(ute);
             break;
         case KEY_CTRL('f'):
         {
-            buffer_search_word(ute);
+            ute_search_word(ute);
             break;
         }
         case KEY_CTRL('b'):
@@ -199,7 +207,7 @@ int manage_key(Editor *ute, int ch) {
             ute->display.up_to_date = false;
             break;
 
-        case KEY_ESCAPE:
+        case KEY_ESCAPE: {
             timeout(0);
             int c = getch();
             if(c != ERR) {
@@ -215,7 +223,7 @@ int manage_key(Editor *ute, int ch) {
                 }
             }
             timeout(-1);
-            break;
+        } break;
         default: {
             //TODO: manage all ctrl keybinding
 
@@ -233,7 +241,7 @@ int manage_key(Editor *ute, int ch) {
                 buffer->dirty = 1;
                 ute->display.up_to_date = false;
             }
-         }
+        }
     }
     return 0;
 }
@@ -244,14 +252,14 @@ void update_display(Editor *ute) {
 
     Display *display = &ute->display;
 
-    // TODO: try to parse the buffer per line, to have a better management of the scrolls
-
     buffer_set_cursor(buffer, buffer_size(buffer) - 1);
 
     if (!display->up_to_date) {
         display->attr.count = 0;
 
         buffer_parse_line(buffer);
+        UTE_ASSERT(buffer->lines.count > 0, "ERROR: buffer->lines.count cannot be 0");
+        UTE_ASSERT(buffer->lines.max_size > 0, "ERROR: buffer->lines.max_size cannot be 0");
 
         // Set simple color scheme for C code
         int i = 0;
@@ -291,8 +299,6 @@ void update_display(Editor *ute) {
         }
         display->up_to_date = true;
     }
-
-    UTE_ASSERT(buffer->lines.count > 0, "ERROR: buffer->lines.count cannot be 0");
 
     // Check to see if I need to scroll
     int cy, cx;
@@ -455,20 +461,19 @@ String_View read_command_line(Editor *ute, const char* msg) {
 
 char *shift_args(int *argc, char ***argv) {
     char *arg = **argv;
-    assert(arg != NULL && "Argomento nullo");
+    UTE_ASSERT(*argc > 0 && arg != NULL, "ERROR: no arguments provided");
     *argc = *argc -1;
     *argv = *argv + 1;
     return arg;
 }
 
-int read_file(Editor *ute, Buffer *buffer) {
+int read_file(Buffer *buffer, String_View cwd) {
     size_t file_size;
     int ret = 1;
-    size_t cwd_lenght = strlen(ute->cwd);
     size_t filename_lenght = strlen(buffer->file_name);
 
     String_Builder sb = {0};
-    ute_da_append_many(&sb, ute->cwd, cwd_lenght);
+    ute_da_append_many(&sb, cwd.data, cwd.count);
     ute_da_append(&sb, '/');
     ute_da_append_many(&sb, buffer->file_name, filename_lenght);
     ute_da_append(&sb, 0);
@@ -493,7 +498,7 @@ defer:
     return ret;
 }
 
-int write_file(Editor *ute) {
+int ute_write(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
     String_View sv = {0};
 
@@ -512,11 +517,12 @@ int write_file(Editor *ute) {
 
     while(buf_size > 0) {
         int n = fwrite(buffer->data, sizeof(*buffer->data), buf_size, fout);
-        assert(n != 0);
+        UTE_ASSERT(n != 0, "ERROR: did not write anything to the file");
         buf_size -= n/sizeof(*buffer->data);
     }
 
     buffer_set_cursor(buffer, saved_cursor);
+    buffer->dirty = 0;
 
     fclose(fout);
     return 0;
@@ -525,20 +531,15 @@ int write_file(Editor *ute) {
 int open_file(Editor *ute, char *file_name) {
     int ret = 1;
     Buffer buffer = {0};
-    String_View sv;
 
-    if(file_name == NULL) {
-        sv = read_command_line(ute, "Open file: ");
-        if(sv.count > 0) buffer.file_name = sv_to_cstr(sv);
-    } else {
-        buffer.file_name = file_name;
-    }
-    if (buffer.file_name == NULL) {
-        return 0;
-    }
+    UTE_ASSERT(file_name != NULL, "ERROR: cannot pass an empty file_name");
+    buffer.file_name = file_name;
 
-    ret = read_file(ute, &buffer);
+    String_View sv = { .data = ute->cwd, .count = strlen(ute->cwd) };
+
+    ret = read_file(&buffer, sv);
     if (ret) {
+        buffer_free(&ute->buffer);
         ute->buffer = buffer;
         ute->display.up_to_date = false;
     }
@@ -586,7 +587,7 @@ char *sv_to_cstr(String_View sv) {
     return sb.data;
 }
 
-void buffer_search_word(Editor *ute) {
+void ute_search_word(Editor *ute) {
     Buffer *gb = current_buffer(ute);
     int saved_cursor = gb->cursor;
     String_View query = {0};
@@ -652,6 +653,15 @@ void buffer_search_word(Editor *ute) {
     }
     buffer_set_cursor(gb, last_match);
     ute->command.cursor = start;
+}
+
+int ute_open(Editor *ute) {
+    String_View sv;
+
+    sv = read_command_line(ute, "Open file: ");
+    if(sv.count == 0) return 0;
+    char *file_name = sv_to_cstr(sv);
+    return open_file(ute, file_name);
 }
 
 

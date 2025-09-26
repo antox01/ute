@@ -1,6 +1,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <stdio.h>
+#include <ncurses.h>
 #include <assert.h>
 
 #if __has_attribute(__fallthrough__)
@@ -22,17 +24,28 @@
         abort();\
     } while (0)
 
+#define UTE_DA_INIT_CAP 64
+
+#define ute_da_reserve(da, expected_size) \
+    do { \
+        if((expected_size) > (da)->max_size){ \
+            if((da)->max_size == 0) { \
+                (da)->max_size = UTE_DA_INIT_CAP; \
+            } \
+            while(expected_size > (da)->max_size) { \
+                (da)->max_size *= 2; \
+            } \
+            (da)->data = realloc((da)->data, (da)->max_size * sizeof(*(da)->data)); \
+            UTE_ASSERT((da)->data != NULL, "ERROR: not enough memory"); \
+        } \
+    } while(0)
+
 /* ute_da_append:
  * Macro to append an element to a dynamic array.
  */
 #define ute_da_append(da,item) \
     do {\
-        if((da)->count + 1 >= (da)->max_size) { \
-            size_t max_size = (da)->count + 1; \
-            (da)->data = realloc((da)->data, max_size * sizeof(*(da)->data)); \
-            assert((da)->data != NULL); \
-            (da)->max_size = max_size; \
-        } \
+        ute_da_reserve((da), (da)->count + 1);\
         (da)->data[(da)->count] = (item); \
         (da)->count += 1; \
     } while(0)
@@ -42,12 +55,7 @@
  */
 #define ute_da_append_many(da, items, size) \
     do {\
-        if((da)->count + (size) >= (da)->max_size) { \
-            size_t max_size = (da)->count + (size); \
-            (da)->data = realloc((da)->data, max_size * sizeof(*(da)->data)); \
-            assert((da)->data != NULL); \
-            (da)->max_size = max_size; \
-        } \
+        ute_da_reserve((da), (da)->count + (size));\
         memcpy(&(da)->data[(da)->count], (items), (size)*sizeof(*(da)->data));\
         (da)->count += (size); \
     } while(0)
