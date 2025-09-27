@@ -5,7 +5,7 @@ typedef enum {
     TOKEN_END = 0,
     TOKEN_TYPES,
     TOKEN_KEYWORD,
-    TOKEN_STR,
+    TOKEN_LITERAL,
     TOKEN_SYMBOL,
     TOKEN_PREPROC,
     TOKEN_COMMENT,

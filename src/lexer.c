@@ -23,7 +23,7 @@ char *token_str(Token_Kind tk) {
         case TOKEN_END: return "TOKEN_END";
         case TOKEN_TYPES: return "TOKEN_TYPES";
         case TOKEN_KEYWORD: return "TOKEN_KEYWORD";
-        case TOKEN_STR: return "TOKEN_STR";
+        case TOKEN_LITERAL: return "TOKEN_LITERAL";
         case TOKEN_SYMBOL: return "TOKEN_SYMBOL";
         case TOKEN_PREPROC: return "TOKEN_PREPROC";
         case TOKEN_COMMENT: return "TOKEN_COMMENT";
@@ -104,7 +104,42 @@ void lexer_next(Lexer *l) {
         // NOTE: in case there is no `"` to close the string,
         // just set everything as a string
         l->token.count = l->cursor - saved_cursor;
-        l->token.kind = TOKEN_STR;
+        l->token.kind = TOKEN_LITERAL;
+        return;
+    }
+
+    if(l->data[l->cursor] == '\'') {
+        int saved_cursor = l->cursor;
+        l->cursor++;
+        if(l->data[l->cursor] == '\\') l->cursor++;
+        l->cursor++;
+        if(l->data[l->cursor] == '\'') {
+            l->cursor++;
+            // NOTE: in case there is no `'` to close the string,
+            // just set everything as a string
+            l->token.count = l->cursor - saved_cursor;
+            l->token.kind = TOKEN_LITERAL;
+            return;
+        }
+        l->cursor = saved_cursor;
+    }
+
+    if(isdigit(l->data[l->cursor])) {
+        if(l->data[l->cursor] == '0') {
+            l->cursor++;
+            switch(l->data[l->cursor]) {
+                case 'b':
+                case 'o':
+                case 'x':
+                    l->cursor++;
+                    break;
+                default:
+                    break;
+            }
+        }
+        while(l->cursor < l->size && isdigit(l->data[l->cursor])) l->cursor++;
+        l->token.kind = TOKEN_LITERAL;
+        l->token.count = l->cursor - l->token.start;
         return;
     }
 

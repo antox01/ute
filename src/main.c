@@ -283,7 +283,7 @@ void update_display(Editor *ute) {
                 case TOKEN_COMMENT:
                     color = COMMENT_COLOR;
                     break;
-                case TOKEN_STR:
+                case TOKEN_LITERAL:
                     color = STRING_COLOR;
                     break;
                 case TOKEN_PREPROC:

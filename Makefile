@@ -21,7 +21,7 @@ ute: out/ute
 out/ute: $(OUT_FILES)
 	$(CC) $(DBG_FLAGS-y) -o out/ute $(OUT_FILES) $(LD_FLAGS)
 
-out/main.o: src/main.c include/common.h include/buffer.h
+out/main.o: src/main.c include/common.h include/buffer.h include/lexer.h
 	$(CC) $(DBG_FLAGS-y) -c -o out/main.o src/main.c $(CFLAGS) $(IFLAGS)
 
 out/line.o: src/line.c
