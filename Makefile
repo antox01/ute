@@ -27,7 +27,7 @@ out/main.o: src/main.c include/common.h include/buffer.h include/lexer.h
 out/line.o: src/line.c
 	$(CC) $(DBG_FLAGS-y) -c -o out/line.o src/line.c $(CFLAGS) $(IFLAGS)
 
-out/buffer.o: src/buffer.c include/buffer.h include/common.h
+out/buffer.o: src/buffer.c include/buffer.h include/line.h include/common.h
 	$(CC) $(DBG_FLAGS-y) -c -o out/buffer.o src/buffer.c $(CFLAGS) $(IFLAGS)
 
 out/lexer.o: src/lexer.c include/lexer.h include/common.h
