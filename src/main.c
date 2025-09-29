@@ -22,17 +22,10 @@
 #define TYPE_COLOR      3
 #define COMMENT_COLOR   4
 #define PREPROC_COLOR   5
-#define STRING_COLOR    6
+#define LITERAL_COLOR   6
 #define HIGHLIGHT_COLOR 9
 
 #define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
-
-const char *c_types[] = { "int", "float", "double", "char", "void", "size_t", };
-
-const char *c_keywords[] = {
-    "const", "if", "else", "for", "while", "do", "return", "switch", "case", "default",
-    "typedef", "struct", "break", "continue",
-};
 
 typedef struct {
     char *data;
@@ -130,7 +123,7 @@ int main(int argc, char **argv) {
     init_pair(TYPE_COLOR, COLOR_GREEN, COLOR_BLACK);
     init_pair(COMMENT_COLOR, COLOR_CYAN, COLOR_BLACK);
     init_pair(PREPROC_COLOR, COLOR_BLUE, COLOR_BLACK);
-    init_pair(STRING_COLOR, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(LITERAL_COLOR, COLOR_MAGENTA, COLOR_BLACK);
     init_pair(HIGHLIGHT_COLOR, COLOR_BLACK, COLOR_YELLOW);
 
     getmaxyx(stdscr, ute.screen_height, ute.screen_width);
@@ -284,7 +277,7 @@ void update_display(Editor *ute) {
                     color = COMMENT_COLOR;
                     break;
                 case TOKEN_LITERAL:
-                    color = STRING_COLOR;
+                    color = LITERAL_COLOR;
                     break;
                 case TOKEN_PREPROC:
                     color = PREPROC_COLOR;
