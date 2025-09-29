@@ -601,7 +601,6 @@ void ute_search_word(Editor *ute) {
 
     // NOTE: Start the search from the current position
     size_t cur_char = gb->cursor;
-    buffer_set_cursor(gb, gb_size);
 
     char *search_message = "Search: ";
     print_command_line(ute, search_message);
@@ -630,6 +629,8 @@ void ute_search_word(Editor *ute) {
         query.count = ute->command.cursor - start;
         print_command_line(ute, search_message);
         if(quit) break;
+        buffer_set_cursor(gb, gb_size);
+
         // Search in the buffer the word
         while(cur_char < gb_size) {
             if(forward && last_match == (int) cur_char) {
