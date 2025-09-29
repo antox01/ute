@@ -599,13 +599,13 @@ void ute_search_word(Editor *ute) {
     int last_match = -1;
     size_t gb_size = buffer_size(gb);
 
+    // NOTE: Start the search from the current position
+    size_t cur_char = gb->cursor;
+    buffer_set_cursor(gb, gb_size);
+
     char *search_message = "Search: ";
     print_command_line(ute, search_message);
     while(1) {
-        // NOTE: Start the search from the current position
-        size_t cur_char = gb->cursor;
-        buffer_set_cursor(gb, gb_size);
-
         int ch = getch();
         switch(ch) {
             case '\n':
@@ -625,9 +625,9 @@ void ute_search_word(Editor *ute) {
                 break;
             default:
                 buffer_insert(&ute->command, ch);
-                query.data = &ute->command.data[start];
-                query.count = ute->command.cursor - start;
         }
+        query.data = &ute->command.data[start];
+        query.count = ute->command.cursor - start;
         print_command_line(ute, search_message);
         if(quit) break;
         // Search in the buffer the word
@@ -648,8 +648,12 @@ void ute_search_word(Editor *ute) {
             last_match = cur_char;
             buffer_set_cursor(gb, cur_char);
             ute->display.up_to_date = false;
+            forward = 0;
             update_display(ute);
             print_command_line(ute, search_message);
+        } else if(forward){
+            cur_char = saved_cursor;
+            forward = 0;
         }
     }
     buffer_set_cursor(gb, last_match);
