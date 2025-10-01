@@ -14,6 +14,10 @@ static const char *c_keywords[] = {
     "typedef", "struct", "break", "continue",
 };
 
+bool is_symbol_start(char ch) {
+    return ch == '_' || isalpha(ch);
+}
+
 bool is_symbol(char ch) {
     return ch == '_' || isalnum(ch);
 }
@@ -124,6 +128,13 @@ void lexer_next(Lexer *l) {
         l->cursor = saved_cursor;
     }
 
+    if(is_symbol_start(l->data[l->cursor])) {
+        while(l->cursor < l->size && is_symbol(l->data[l->cursor])) l->cursor++;
+        l->token.kind = TOKEN_SYMBOL;
+        l->token.count = l->cursor - l->token.start;
+        return;
+    }
+
     if(isdigit(l->data[l->cursor])) {
         if(l->data[l->cursor] == '0') {
             l->cursor++;
@@ -165,6 +176,16 @@ void lexer_next(Lexer *l) {
         return;
     }
 
+    if(lexer_starts_with_cstr(l, "/*")) {
+        while(l->cursor < l->size && !lexer_starts_with_cstr(l, "*/")) {
+            l->cursor++;
+        }
+        if(l->cursor < l->size) l->cursor++;
+
+        l->token.count = l->cursor - l->token.start;
+        l->token.kind = TOKEN_COMMENT;
+        return;
+    }
 
     l->cursor++;
     l->token.count = 1;
