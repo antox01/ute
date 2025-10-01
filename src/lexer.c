@@ -49,6 +49,10 @@ void lexer_trim_left(Lexer *l) {
     while(isspace(l->data[l->cursor])) l->cursor++;
 }
 
+/*
+ * Check if the current token to analyze in the lexer starts with
+ * the passed string. NOTE: the characters will be consumed by the function.
+ */
 bool lexer_starts_with_cstr(Lexer *l, char *start) {
     int saved_cursor = l->cursor;
     while(*start && l->cursor < l->size && l->data[l->cursor] == *start) {
@@ -180,7 +184,7 @@ void lexer_next(Lexer *l) {
         while(l->cursor < l->size && !lexer_starts_with_cstr(l, "*/")) {
             l->cursor++;
         }
-        if(l->cursor < l->size) l->cursor++;
+        //if(l->cursor < l->size) l->cursor++;
 
         l->token.count = l->cursor - l->token.start;
         l->token.kind = TOKEN_COMMENT;
