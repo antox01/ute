@@ -262,33 +262,38 @@ void update_display(Editor *ute) {
         // Reset attribute to be the default one
         for (size_t j = 0; j < (size_t) buffer_size(buffer); j++) ute_da_append(&display->attr, DEFAULT_COLOR);
 
-        Lexer l = lexer_init(buffer->data, buffer_size(buffer));
-        while(l.cursor < l.size) {
-            lexer_next(&l);
-            NCURSES_COLOR_T color = DEFAULT_COLOR;
-            switch(l.token.kind) {
-                case TOKEN_TYPES:
-                    color = TYPE_COLOR;
-                    break;
-                case TOKEN_KEYWORD:
-                    color = KEYWORD_COLOR;
-                    break;
-                case TOKEN_COMMENT:
-                    color = COMMENT_COLOR;
-                    break;
-                case TOKEN_LITERAL:
-                    color = LITERAL_COLOR;
-                    break;
-                case TOKEN_PREPROC:
-                    color = PREPROC_COLOR;
-                    break;
-                default:
-                    color = DEFAULT_COLOR;
-            }
-            size_t j = 0;
-            while(j < l.token.count) {
-                display->attr.data[j + l.token.start] = color;
-                j++;
+        size_t flen = strlen(buffer->file_name);
+
+        // TODO: find a better way to store the file type of the buffer
+        if(flen > 2 && strcmp(&buffer->file_name[flen - 2], ".c") == 0) {
+            Lexer l = lexer_init(buffer->data, buffer_size(buffer));
+            while(l.cursor < l.size) {
+                lexer_next(&l);
+                NCURSES_COLOR_T color = DEFAULT_COLOR;
+                switch(l.token.kind) {
+                    case TOKEN_TYPES:
+                        color = TYPE_COLOR;
+                        break;
+                    case TOKEN_KEYWORD:
+                        color = KEYWORD_COLOR;
+                        break;
+                    case TOKEN_COMMENT:
+                        color = COMMENT_COLOR;
+                        break;
+                    case TOKEN_LITERAL:
+                        color = LITERAL_COLOR;
+                        break;
+                    case TOKEN_PREPROC:
+                        color = PREPROC_COLOR;
+                        break;
+                    default:
+                        color = DEFAULT_COLOR;
+                }
+                size_t j = 0;
+                while(j < l.token.count) {
+                    display->attr.data[j + l.token.start] = color;
+                    j++;
+                }
             }
         }
 
@@ -673,4 +678,4 @@ int ute_open(Editor *ute) {
 
 // TODO: Use a Buffer structure for the command line, to have automatic history
 // TODO: Improve keybinding management
-// TODO: C syntax highlighting
+// TODO: Implement Emacs mode mechanism or another way to have commands specific for certain buffers

@@ -184,8 +184,6 @@ void lexer_next(Lexer *l) {
         while(l->cursor < l->size && !lexer_starts_with_cstr(l, "*/")) {
             l->cursor++;
         }
-        //if(l->cursor < l->size) l->cursor++;
-
         l->token.count = l->cursor - l->token.start;
         l->token.kind = TOKEN_COMMENT;
         return;
