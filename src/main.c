@@ -30,12 +30,6 @@
 typedef struct {
     char *data;
     size_t count;
-    size_t max_size;
-} String_Builder;
-
-typedef struct {
-    char *data;
-    size_t count;
 } String_View;
 
 char *sv_to_cstr(String_View sv);
@@ -267,7 +261,7 @@ void update_display(Editor *ute) {
 
             // TODO: find a better way to store the file type of the buffer
             if(flen > 2 && strcmp(&buffer->file_name[flen - 2], ".c") == 0) {
-                Lexer l = lexer_init(buffer->data, buffer_size(buffer));
+                Lexer l = lexer_init(buffer->sb.data, buffer_size(buffer));
                 while(l.cursor < l.size) {
                     lexer_next(&l);
                     NCURSES_COLOR_T color = DEFAULT_COLOR;
@@ -344,10 +338,10 @@ void update_display(Editor *ute) {
                 display->count = 0;
                 attrset(COLOR_PAIR(new_attribute));
             }
-            if(buffer->data[curr_char] == '\t') {
+            if(buffer->sb.data[curr_char] == '\t') {
                 for(int ntab = 0; ntab < TAB_TO_SPACE; ntab++)
                     ute_da_append(display, ' ');
-            } else ute_da_append(display, buffer->data[curr_char]);
+            } else ute_da_append(display, buffer->sb.data[curr_char]);
 
             j++;
             curr_char++;
@@ -375,7 +369,7 @@ void update_display(Editor *ute) {
 
     // NOTE: take into account characters of different sizes
     for(int curr_char = buffer->lines.data[cy].start; curr_char < saved_cursor; curr_char++) {
-        if(buffer->data[curr_char] == '\t') cx += TAB_TO_SPACE - 1;
+        if(buffer->sb.data[curr_char] == '\t') cx += TAB_TO_SPACE - 1;
     }
 
     buffer_set_cursor(buffer, saved_cursor);
@@ -518,18 +512,15 @@ int ute_write(Editor *ute) {
     FILE *fout = fopen(buffer->file_name, "w");
     if(fout == NULL) return 1;
 
-    int saved_cursor = buffer->cursor;
     int buf_size = buffer_size(buffer);
-
-    buffer_set_cursor(buffer, buf_size);
+    if(buffer->sb.count != (size_t)buf_size) buffer_parse_line(buffer);
 
     while(buf_size > 0) {
-        int n = fwrite(buffer->data, sizeof(*buffer->data), buf_size, fout);
+        int n = fwrite(buffer->sb.data, sizeof(*buffer->sb.data), buf_size, fout);
         UTE_ASSERT(n != 0, "ERROR: did not write anything to the file");
-        buf_size -= n/sizeof(*buffer->data);
+        buf_size -= n/sizeof(*buffer->sb.data);
     }
 
-    buffer_set_cursor(buffer, saved_cursor);
     buffer->dirty = 0;
 
     fclose(fout);
@@ -636,7 +627,6 @@ void ute_search_word(Editor *ute) {
         query.count = ute->command.cursor - start;
         print_command_line(ute, search_message);
         if(quit) break;
-        buffer_set_cursor(gb, gb_size);
 
         // Search in the buffer the word
         while(cur_char < gb_size) {
@@ -645,7 +635,7 @@ void ute_search_word(Editor *ute) {
                 continue;
             }
             if(cur_char + query.count < gb_size
-                    && strncmp(&gb->data[cur_char], query.data, query.count) == 0) {
+                    && strncmp(&gb->sb.data[cur_char], query.data, query.count) == 0) {
                 ute->display.highlight_search = cur_char;
                 ute->display.highlight_count = query.count;
                 break;

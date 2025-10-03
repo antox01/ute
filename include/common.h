@@ -62,6 +62,11 @@
         (da)->count += (size); \
     } while(0)
 
+typedef struct {
+    char *data;
+    size_t count;
+    size_t max_size;
+} String_Builder;
 
 
 #endif // COMMON_H

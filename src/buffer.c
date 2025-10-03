@@ -9,6 +9,7 @@ void buffer_free(Buffer *gb) {
     if(gb->file_name != NULL) free(gb->file_name);
     if(gb->data != NULL) free(gb->data);
     if(gb->lines.data != NULL) free(gb->lines.data);
+    if(gb->sb.data != NULL) free(gb->sb.data);
 }
 
 void buffer_grow(Buffer *gb) {
@@ -154,6 +155,7 @@ void buffer_parse_line(Buffer *gb) {
             ute_da_append(&gb->lines, line);
             line_start = cur_char+1;
         }
+        ute_da_append(&gb->sb, gb->data[cur_char]);
         cur_char++;
     }
     if(line_start <= cur_char) {

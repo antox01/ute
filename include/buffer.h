@@ -15,6 +15,7 @@ typedef struct buffer_s_ {
     char *file_name;
 
     Lines lines;
+    String_Builder sb;
 } Buffer;
 
 typedef struct {
