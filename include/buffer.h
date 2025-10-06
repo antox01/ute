@@ -14,6 +14,8 @@ typedef struct buffer_s_ {
     int dirty;
     char *file_name;
 
+    int mark_position;
+
     Lines lines;
     String_Builder sb;
 } Buffer;
@@ -39,6 +41,7 @@ void buffer_backward_word(Buffer *buffer);
 void buffer_right(Buffer *gb);
 void buffer_left(Buffer *gb);
 void buffer_remove(Buffer *gb);
+void buffer_remove_selection(Buffer *gb);
 void buffer_insert(Buffer *gb, char c);
 void buffer_insert_str(Buffer *gb, char *str, int size);
 void buffer_set_cursor(Buffer *gb, int cursor);

@@ -189,14 +189,32 @@ int manage_key(Editor *ute) {
                 case KEY_LEFT:
                     buffer_left(buffer);
                     break;
+                case 'w':
+                    buffer_forward_word(buffer);
+                    break;
+                case 'b':
+                    buffer_backward_word(buffer);
+                    break;
+                case 'v':
+                    // TODO: make a function to wrap this operation, so it can
+                    // be called as a command
+                    buffer->mark_position = buffer->cursor;
+                    ute->display.up_to_date = false;
+                    break;
+                case 'D':
+                    buffer_remove_selection(buffer);
+                    buffer->dirty = 1;
+                    ute->display.up_to_date = false;
+                    break;
                 case KEY_CTRL('c'):
                     return 1;
                 case KEY_CTRL('s'):
                     ute_write(ute);
                     break;
                 case KEY_CTRL('o'):
-                    // TODO: print error when is not possible to open the file
-                    ute_open(ute);
+                    if(!ute_open(ute)) {
+                        // TODO: print error when is not possible to open the file
+                    }
                     break;
                 case KEY_CTRL('f'):
                     ute_search_word(ute);
@@ -206,6 +224,7 @@ int manage_key(Editor *ute) {
         case INSERT_MODE:
         {
             switch (ch) {
+                case KEY_ESCAPE:
                 case KEY_CTRL('c'):
                     ute->mode = NORMAL_MODE;
                     break;
@@ -230,25 +249,6 @@ int manage_key(Editor *ute) {
                     buffer->dirty = 1;
                     ute->display.up_to_date = false;
                     break;
-
-                case KEY_ESCAPE:
-                {
-                    timeout(0);
-                    int c = getch();
-                    if(c != ERR) {
-                        switch(c) {
-                            case 'f':
-                                buffer_forward_word(buffer);
-                                break;
-                            case 'b':
-                                buffer_backward_word(buffer);
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-                    timeout(-1);
-                } break;
                 default:
                 {
                     //TODO: manage all ctrl keybinding
@@ -291,7 +291,7 @@ void update_display(Editor *ute) {
         UTE_ASSERT(buffer->lines.max_size > 0, "ERROR: buffer->lines.max_size cannot be 0");
 
         // Reset attribute to be the default one
-        for (size_t j = 0; j < (size_t) buffer_size(buffer); j++) ute_da_append(&display->attr, DEFAULT_COLOR);
+        for (size_t j = 0; j < (size_t) buffer_size(buffer); j++) ute_da_append(&display->attr, COLOR_PAIR(DEFAULT_COLOR));
 
         if(buffer->file_name) {
             size_t flen = strlen(buffer->file_name);
@@ -323,17 +323,21 @@ void update_display(Editor *ute) {
                     }
                     size_t j = 0;
                     while(j < l.token.count) {
-                        display->attr.data[j + l.token.start] = color;
+                        display->attr.data[j + l.token.start] = COLOR_PAIR(color);
                         j++;
                     }
                 }
             }
         }
 
+        // NOTE: displaying the start of the mark for the selection
+        display->attr.data[buffer->mark_position] = A_UNDERLINE;
+
+
         // Highlight the searched character
         size_t hl_it = 0;
         while(hl_it < ute->display.highlight_count) {
-            display->attr.data[hl_it + ute->display.highlight_search] = HIGHLIGHT_COLOR;
+            display->attr.data[hl_it + ute->display.highlight_search] = COLOR_PAIR(HIGHLIGHT_COLOR);
             hl_it++;
         }
         display->up_to_date = true;
@@ -358,9 +362,8 @@ void update_display(Editor *ute) {
     int cur_y = 0;
 
     display->count = 0;
-
-    NCURSES_COLOR_T active_attribute = DEFAULT_COLOR;
-    attrset(COLOR_PAIR(active_attribute));
+    NCURSES_COLOR_T active_attribute = COLOR_PAIR(DEFAULT_COLOR);
+    attrset(active_attribute);
     size_t i = 0;
     while(i < (size_t) height && i + display->sy < buffer->lines.count) {
         Line line = buffer->lines.data[i+display->sy];
@@ -373,7 +376,7 @@ void update_display(Editor *ute) {
                 active_attribute = new_attribute;
                 addnstr(display->data, display->count);
                 display->count = 0;
-                attrset(COLOR_PAIR(new_attribute));
+                attrset(new_attribute);
             }
             if(buffer->sb.data[curr_char] == '\t') {
                 for(int ntab = 0; ntab < TAB_TO_SPACE; ntab++)
