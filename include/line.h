@@ -2,7 +2,7 @@
 #define LINE_H
 
 #include <stdlib.h>
-#include "common.h"
+#include "utils.h"
 
 typedef struct line_s {
     size_t start;

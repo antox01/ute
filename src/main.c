@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include "buffer.h"
-#include "common.h"
+#include "utils.h"
 #include "lexer.h"
 
 #define MAX_STR_SIZE 256
@@ -24,15 +24,9 @@
 #define PREPROC_COLOR   5
 #define LITERAL_COLOR   6
 #define HIGHLIGHT_COLOR 9
+#define STATUS_LINE_COLOR 16
 
 #define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
-
-typedef struct {
-    char *data;
-    size_t count;
-} String_View;
-
-char *sv_to_cstr(String_View sv);
 
 
 typedef struct {
@@ -125,6 +119,8 @@ int main(int argc, char **argv) {
     init_pair(PREPROC_COLOR, COLOR_BLUE, COLOR_BLACK);
     init_pair(LITERAL_COLOR, COLOR_MAGENTA, COLOR_BLACK);
     init_pair(HIGHLIGHT_COLOR, COLOR_BLACK, COLOR_YELLOW);
+
+    init_pair(STATUS_LINE_COLOR, COLOR_WHITE, COLOR_BLACK);
 
     getmaxyx(stdscr, ute.screen_height, ute.screen_width);
 #if 0
@@ -414,6 +410,7 @@ void update_display(Editor *ute) {
 
     buffer_set_cursor(buffer, saved_cursor);
     attroff(COLOR_PAIR(active_attribute));
+    attron(COLOR_PAIR(STATUS_LINE_COLOR));
 
     //TODO: update_display managing the reset of the cursor
     print_status_line(ute);
@@ -622,15 +619,6 @@ void buffers_prev(Editor *ute) {
     (void) ute;
     UTE_ASSERT(0, "ERROR: buffers_next not implemented");
     //ute->curr_buffer = (ute->curr_buffer - 1 + ute->buffers.count) % ute->buffers.count;
-}
-
-char *sv_to_cstr(String_View sv) {
-    String_Builder sb = {0};
-    char *data = sv.data;
-    size_t count = sv.count;
-    ute_da_append_many(&sb, data, count);
-    ute_da_append(&sb, 0);
-    return sb.data;
 }
 
 void ute_search_word(Editor *ute) {

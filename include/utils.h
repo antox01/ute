@@ -2,6 +2,8 @@
 #define COMMON_H
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <ncurses.h>
 #include <assert.h>
 
@@ -68,5 +70,11 @@ typedef struct {
     size_t max_size;
 } String_Builder;
 
+typedef struct {
+    char *data;
+    size_t count;
+} String_View;
+
+char *sv_to_cstr(String_View sv);
 
 #endif // COMMON_H

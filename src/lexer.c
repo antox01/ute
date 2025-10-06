@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
-#include "common.h"
+#include "utils.h"
 #include "lexer.h"
 
 static const char *c_types[] = { "int", "float", "double", "char", "void", "size_t", };

@@ -2,7 +2,7 @@
 #define BUFFER_H_DEF
 
 #include "line.h"
-#include "common.h"
+#include "utils.h"
 
 #define BUF_CAPACITY 1024
 
