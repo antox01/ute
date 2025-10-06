@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include "commands.h"
 #include "editor.h"
 #include "lexer.h"
 #include "utils.h"
@@ -132,8 +133,12 @@ int editor_command(Editor *ute) {
 
     sv = read_command_line(ute, ": ");
     if(sv.count == 0) return 0;
-    UTE_ASSERT(0, "editor_command: not implemented");
-    //command_search_name(sv);
+    Command_Func *func = command_search_name(sv);
+    if(func != NULL) {
+        func(ute);
+    } else {
+        // TODO: error reporting
+    }
     return 1;
 }
 

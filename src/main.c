@@ -127,6 +127,9 @@ int manage_key(Editor *ute) {
                     buffer->mark_position = buffer->cursor;
                     ute->display.up_to_date = false;
                     break;
+                case ':':
+                    editor_command(ute);
+                    break;
                 case 'g':
                 {
                     if(buffer->lines.count > 0) {
