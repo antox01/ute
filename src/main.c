@@ -62,6 +62,11 @@ typedef struct {
     size_t cy;
 } Display;
 
+typedef enum {
+    NORMAL_MODE = 0,
+    INSERT_MODE,
+} Editor_Mode;
+
 typedef struct {
     //int cx, cy;
     int scroll; // This variable is used to store the position of the first character to display
@@ -72,6 +77,7 @@ typedef struct {
     //Buffers buffers;
     char cwd[MAX_STR_SIZE];
     Buffer command;
+    Editor_Mode mode;
 } Editor;
 
 
@@ -80,7 +86,7 @@ int read_file(Buffer *buffer, String_View cwd);
 int open_file(Editor *ute, char *file_name);
 int get_file_size(FILE *fin, size_t *size);
 
-int manage_key(Editor *ute, int ch);
+int manage_key(Editor *ute);
 void update_display(Editor *ute);
 void print_status_line(Editor *ute);
 void print_command_line(Editor *ute, const char* msg);
@@ -134,14 +140,12 @@ int main(int argc, char **argv) {
         open_file(&ute, strdup(shift_args(&argc, &argv)));
     }
 
-    int ch, stop = 0;
+    int stop = 0;
 
     update_display(&ute);
 
     while (!stop) {
-        ch = getch();
-	
-        stop = manage_key(&ute, ch);
+        stop = manage_key(&ute);
         update_display(&ute);
     }
     endwin();
@@ -154,86 +158,119 @@ int main(int argc, char **argv) {
 #endif
 }
 
-int manage_key(Editor *ute, int ch) {
+int manage_key(Editor *ute) {
+    int ch = getch();
+	
     Buffer *buffer = current_buffer(ute);
+    if (ch == KEY_RESIZE) {
+        getmaxyx(stdscr, ute->screen_height, ute->screen_width);
+        return 0;
+    }
 
-    switch (ch) {
-        case KEY_CTRL('c'):
-            return 1;
-        case KEY_CTRL('s'):
-            ute_write(ute);
+    switch(ute->mode) {
+        case NORMAL_MODE:
+            switch (ch) {
+                case 'i':
+                    ute->mode = INSERT_MODE;
+                    break;
+                case 'j':
+                case KEY_DOWN:
+                    buffer_next_line(buffer);
+                    break;
+                case 'k':
+                case KEY_UP:
+                    buffer_prev_line(buffer);
+                    break;
+                case 'l':
+                case KEY_RIGHT:
+                    buffer_right(buffer);
+                    break;
+                case 'h':
+                case KEY_LEFT:
+                    buffer_left(buffer);
+                    break;
+                case KEY_CTRL('c'):
+                    return 1;
+                case KEY_CTRL('s'):
+                    ute_write(ute);
+                    break;
+                case KEY_CTRL('o'):
+                    // TODO: print error when is not possible to open the file
+                    ute_open(ute);
+                    break;
+                case KEY_CTRL('f'):
+                    ute_search_word(ute);
+                    break;
+            }
             break;
-        case KEY_CTRL('o'):
-            // TODO: print error when is not possible to open the file
-            ute_open(ute);
-            break;
-        case KEY_CTRL('f'):
+        case INSERT_MODE:
         {
-            ute_search_word(ute);
-            break;
-        }
-        case KEY_CTRL('b'):
-            break;
-        case KEY_RESIZE:
-            getmaxyx(stdscr, ute->screen_height, ute->screen_width);
-            break;
-        case KEY_DOWN:
-            buffer_next_line(buffer);
-            break;
-        case KEY_UP:
-            buffer_prev_line(buffer);
-            break;
-        case KEY_RIGHT:
-            buffer_right(buffer);
-            break;
-        case KEY_LEFT:
-            buffer_left(buffer);
-            break;
-        case KEY_DC:
-            buffer_right(buffer);
-            fallthrough;
-        case 127:
-        case KEY_BACKSPACE:
-            buffer_remove(buffer);
-            buffer->dirty = 1;
-            ute->display.up_to_date = false;
-            break;
+            switch (ch) {
+                case KEY_CTRL('c'):
+                    ute->mode = NORMAL_MODE;
+                    break;
+                case KEY_DOWN:
+                    buffer_next_line(buffer);
+                    break;
+                case KEY_UP:
+                    buffer_prev_line(buffer);
+                    break;
+                case KEY_RIGHT:
+                    buffer_right(buffer);
+                    break;
+                case KEY_LEFT:
+                    buffer_left(buffer);
+                    break;
+                case KEY_DC:
+                    buffer_right(buffer);
+                    fallthrough;
+                case 127:
+                case KEY_BACKSPACE:
+                    buffer_remove(buffer);
+                    buffer->dirty = 1;
+                    ute->display.up_to_date = false;
+                    break;
 
-        case KEY_ESCAPE: {
-            timeout(0);
-            int c = getch();
-            if(c != ERR) {
-                switch(c) {
-                    case 'f':
-                        buffer_forward_word(buffer);
-                        break;
-                    case 'b':
-                        buffer_backward_word(buffer);
-                        break;
-                    default:
-                        break;
-                }
-            }
-            timeout(-1);
-        } break;
-        default: {
-            //TODO: manage all ctrl keybinding
-
-            if(is_printable(ch)) {
-                // Convert tab key to multiple spaces
-                if(EXPAND_TAB && ch == '\t') {
-                    for(int i = 0; i < TAB_TO_SPACE; i++) {
-                        buffer_insert(buffer, ' ');
+                case KEY_ESCAPE:
+                {
+                    timeout(0);
+                    int c = getch();
+                    if(c != ERR) {
+                        switch(c) {
+                            case 'f':
+                                buffer_forward_word(buffer);
+                                break;
+                            case 'b':
+                                buffer_backward_word(buffer);
+                                break;
+                            default:
+                                break;
+                        }
                     }
-                } else {
-                    //line_add_char(&ute.lines[ute.cy], ch, ute.cx);
-                    //ute.cx++;
-                    buffer_insert(buffer, ch);
-                }
-                buffer->dirty = 1;
-                ute->display.up_to_date = false;
+                    timeout(-1);
+                } break;
+                default:
+                {
+                    //TODO: manage all ctrl keybinding
+
+                    if(is_printable(ch)) {
+                        // Convert tab key to multiple spaces
+                        if(EXPAND_TAB && ch == '\t') {
+                            for(int i = 0; i < TAB_TO_SPACE; i++) {
+                                buffer_insert(buffer, ' ');
+                            }
+                        } else {
+                            //line_add_char(&ute.lines[ute.cy], ch, ute.cx);
+                            //ute.cx++;
+                            buffer_insert(buffer, ch);
+                        }
+                        buffer->dirty = 1;
+                        ute->display.up_to_date = false;
+                    }
+                 }
             }
-        }
+            break;
+        } break;
     }
     return 0;
 }
@@ -392,16 +429,23 @@ void print_status_line(Editor *ute) {
     int sline_pos = ute->screen_height - STATUS_LINE_SPACE;
     int sline_right_start = ute->screen_width - STATUS_LINE_RIGHT_CHAR;
     char str[MAX_STR_SIZE] = {0};
-    int left_len;
+    int left_len = 0;
     int cy, cx;
+
     buffer_posyx(buffer, buffer->cursor, &cy, &cx);
     if (ute->buffer.file_name) {
-        left_len = snprintf(str, MAX_STR_SIZE, "%s", ute->buffer.file_name);
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", ute->buffer.file_name);
     } else {
-        left_len = snprintf(str, MAX_STR_SIZE, "%s", "[New File]");
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", "[New File]");
     }
     if(buffer->dirty && left_len < MAX_STR_SIZE - 1)
         left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", " [+]");
+
+    if(ute->mode == INSERT_MODE && left_len < MAX_STR_SIZE - 1)
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", " (INSERT)");
+    else if(ute->mode == NORMAL_MODE && left_len < MAX_STR_SIZE - 1)
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", " (NORMAL)");
+
 
     memset(&str[left_len], ' ', sline_right_start - left_len);
     int right_len = snprintf(&str[sline_right_start], MAX_STR_SIZE - sline_right_start,
@@ -670,4 +714,5 @@ int ute_open(Editor *ute) {
 
 // TODO: Use a Buffer structure for the command line, to have automatic history
 // TODO: Improve keybinding management
+// TODO: Implement simple modal editing
 // TODO: Implement Emacs mode mechanism or another way to have commands specific for certain buffers
