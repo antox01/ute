@@ -32,6 +32,7 @@ typedef struct {
 
 /* void buffer_set_size(Buffer *buffer, int width, int height); */
 void buffer_free(Buffer *gb);
+void buffer_reset(Buffer *gb);
 
 
 void buffer_prev_line(Buffer *buffer);

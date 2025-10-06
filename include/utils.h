@@ -7,6 +7,26 @@
 #include <ncurses.h>
 #include <assert.h>
 
+#define DEFAULT_COLOR   1
+#define KEYWORD_COLOR   2
+#define TYPE_COLOR      3
+#define COMMENT_COLOR   4
+#define PREPROC_COLOR   5
+#define LITERAL_COLOR   6
+#define HIGHLIGHT_COLOR 9
+#define STATUS_LINE_COLOR 16
+
+#define STATUS_LINE_SPACE 2
+#define STATUS_LINE_RIGHT_CHAR 20
+#define TAB_TO_SPACE 4
+#define EXPAND_TAB false
+
+
+#define KEY_CTRL(x) (x & 0x1F)
+#define KEY_ESCAPE 0x1B
+
+#define MAX_STR_SIZE 256
+
 #if __has_attribute(__fallthrough__)
 # define fallthrough                    __attribute__((__fallthrough__))
 #else
@@ -76,5 +96,9 @@ typedef struct {
 } String_View;
 
 char *sv_to_cstr(String_View sv);
+
+// File management functions
+int read_file(String_Builder *sb, const char *file_name);
+int get_file_size(FILE *fin, size_t *size);
 
 #endif // COMMON_H

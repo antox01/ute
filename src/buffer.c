@@ -12,6 +12,14 @@ void buffer_free(Buffer *gb) {
     if(gb->sb.data != NULL) free(gb->sb.data);
 }
 
+void buffer_reset(Buffer *gb) {
+    if(gb->file_name != NULL) free(gb->file_name);
+    gb->cursor = 0;
+    gb->gap_end = gb->capacity;
+    gb->lines.count = 0;
+    gb->sb.count = 0;
+}
+
 void buffer_grow(Buffer *gb) {
     int nc = gb->capacity * 2;
     if(nc == 0) nc = BUF_CAPACITY;
