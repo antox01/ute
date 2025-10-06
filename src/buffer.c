@@ -146,6 +146,7 @@ void buffer_parse_line(Buffer *gb) {
     int saved_cursor = gb->cursor;
     buffer_set_cursor(gb, buffer_size(gb));
     gb->lines.count = 0;
+    gb->sb.count = 0;
     while(cur_char < buffer_size(gb)) {
         if(gb->data[cur_char] == '\n') {
             Line line = {
