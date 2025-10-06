@@ -10,6 +10,7 @@ OUT_FILES+=out/buffer.o
 OUT_FILES+=out/main.o
 OUT_FILES+=out/lexer.o
 OUT_FILES+=out/utils.o
+OUT_FILES+=out/editor.o
 
 DEBUG=y
 DBG_FLAGS-$(DEBUG)+=-fsanitize=address -g
@@ -37,5 +38,7 @@ out/lexer.o: src/lexer.c include/lexer.h include/utils.h
 out/utils.o: src/utils.c include/utils.h
 	$(CC) $(DBG_FLAGS-y) -c -o out/utils.o src/utils.c $(CFLAGS) $(IFLAGS)
 
+out/editor.o: src/editor.c include/editor.h include/utils.h
+	$(CC) $(DBG_FLAGS-y) -c -o out/editor.o src/editor.c $(CFLAGS) $(IFLAGS)
 $(OUTDIR):
 	mkdir -p $(OUTDIR)
