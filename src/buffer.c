@@ -173,7 +173,7 @@ void buffer_parse_line(Buffer *gb) {
 void buffer_remove_selection(Buffer *gb) {
     if(gb->mark_position > gb->cursor) {
         int tmp = gb->cursor;
-        gb->cursor = gb->mark_position;
+        buffer_set_cursor(gb, gb->mark_position);
         gb->mark_position = tmp;
     }
     while(gb->cursor > gb->mark_position) buffer_remove(gb);

@@ -36,7 +36,7 @@ char *sv_to_cstr(String_View sv);
 
 
 typedef struct {
-    NCURSES_COLOR_T *data;
+    int *data;
     size_t count;
     size_t max_size;
 } Display_Attributes;
@@ -331,7 +331,7 @@ void update_display(Editor *ute) {
         }
 
         // NOTE: displaying the start of the mark for the selection
-        display->attr.data[buffer->mark_position] = A_UNDERLINE;
+        if(display->attr.count > 0) display->attr.data[buffer->mark_position] = A_REVERSE;
 
 
         // Highlight the searched character
