@@ -14,8 +14,6 @@
 #define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
 
 int manage_key(Editor *ute);
-void buffers_next(Editor *ute);
-void buffers_prev(Editor *ute);
 
 char *shift_args(int *argc, char ***argv);
 
@@ -55,15 +53,25 @@ int main(int argc, char **argv) {
         const char *file_name = strdup(shift_args(&argc, &argv));
         String_Builder sb = {0};
         if(read_file(&sb, file_name)) {
-            buffer_reset(&ute.buffer);
-            buffer_insert_str(&ute.buffer, sb.data, sb.count);
-            ute.buffer.file_name = (char *)file_name;
+            Buffer buffer = {0};
+            buffer_insert_str(&buffer, sb.data, sb.count);
+            buffer.file_name = (char *)file_name;
 
-            buffer_set_cursor(&ute.buffer, 0);
+            buffer_set_cursor(&buffer, 0);
+            ute_da_append(&ute.buffers, buffer);
+            ute.curr_buffer = ute.buffers.count - 1;
         } else {
             // TODO: error reporting
         }
         if(sb.max_size > 0) free(sb.data);
+    }
+
+    if(ute.buffers.count == 0) {
+        Buffer buffer = {0};
+
+        buffer_set_cursor(&buffer, 0);
+        ute_da_append(&ute.buffers, buffer);
+        ute.curr_buffer = ute.buffers.count - 1;
     }
 
     int stop = 0;
@@ -76,7 +84,9 @@ int main(int argc, char **argv) {
     }
     endwin();
 
-    buffer_free(&ute.buffer);
+    for(size_t i = 0; i < ute.buffers.count; i++)
+        buffer_free(&ute.buffers.data[i]);
+    free(ute.buffers.data);
     buffer_free(&ute.command);
     free(ute.display.data);
     free(ute.display.attr.data);
@@ -213,7 +223,6 @@ int manage_key(Editor *ute) {
                     }
                  }
             }
-            break;
         } break;
     }
     return 0;

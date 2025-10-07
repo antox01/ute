@@ -20,14 +20,6 @@ typedef struct {
 
     size_t highlight_search;
     size_t highlight_count;
-
-    // start of the scroll
-    int sx;
-    int sy;
-
-    // Real cursor position
-    size_t cx;
-    size_t cy;
 } Display;
 
 typedef enum {
@@ -40,9 +32,8 @@ typedef struct {
     int scroll; // This variable is used to store the position of the first character to display
     int screen_width, screen_height;
     int curr_buffer;
-    Buffer buffer;
     Display display;
-    //Buffers buffers;
+    Buffers buffers;
     char cwd[MAX_STR_SIZE];
     Buffer command;
     Editor_Mode mode;
@@ -60,4 +51,6 @@ int editor_search_word(Editor *ute);
 int editor_open(Editor *ute);
 int editor_write(Editor *ute);
 int editor_command(Editor *ute);
+int editor_buffers_next(Editor *ute);
+int editor_buffers_prev(Editor *ute);
 #endif// EDITOR_H

@@ -9,6 +9,8 @@ struct {
     { .name = "search", .func = editor_search_word},
     { .name = "open", .func = editor_open},
     { .name = "write", .func = editor_write},
+    { .name = "bnext", .func = editor_buffers_next},
+    { .name = "bprev", .func = editor_buffers_prev},
 };
 
 Command_Func *command_search_name(String_View sv) {

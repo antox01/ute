@@ -5,8 +5,9 @@
 #include "utils.h"
 
 Buffer *current_buffer(Editor *ute) {
-    // TODO: Implement multiple buffers
-    return &ute->buffer;
+    if(ute->buffers.count > 0)
+        return &ute->buffers.data[ute->curr_buffer];
+    return NULL;
 }
 
 void print_command_line(Editor *ute, const char* msg) {
@@ -106,18 +107,18 @@ int editor_search_word(Editor *ute) {
 int editor_open(Editor *ute) {
     int ret = 1;
     String_View sv;
-    Buffer *buffer = current_buffer(ute);
 
     sv = read_command_line(ute, "Open file: ");
     if(sv.count == 0) return 0;
     char *file_name = sv_to_cstr(sv);
     String_Builder sb = {0};
     if(read_file(&sb, file_name)) {
-        // TODO: implement multiple buffers at the same time
-        buffer_reset(buffer);
-        buffer_insert_str(buffer, sb.data, sb.count);
-        buffer->file_name = file_name;
-        buffer_set_cursor(buffer, 0);
+        Buffer buffer = {0};
+        buffer_insert_str(&buffer, sb.data, sb.count);
+        buffer.file_name = file_name;
+        buffer_set_cursor(&buffer, 0);
+        ute_da_append(&ute->buffers, buffer);
+        ute->curr_buffer = ute->buffers.count - 1;
         ute->display.up_to_date = false;
     } else {
         // TODO: add error reporting
@@ -246,11 +247,11 @@ void update_display(Editor *ute) {
     int width = ute->screen_width;
     int height = ute->screen_height - STATUS_LINE_SPACE;
 
-    if(cy < display->sy) display->sy = cy;
-    else if(height <= cy - display->sy) display->sy = cy - height + 1;
+    if(cy < buffer->sy) buffer->sy = cy;
+    else if(height <= cy - buffer->sy) buffer->sy = cy - height + 1;
 
-    if(cx < display->sx) display->sx = cx;
-    if(width <= cx - display->sx) display->sx = cx - width + 1;
+    if(cx < buffer->sx) buffer->sx = cx;
+    if(width <= cx - buffer->sx) buffer->sx = cx - width + 1;
 
     int cur_x = 0;
     int cur_y = 0;
@@ -259,10 +260,10 @@ void update_display(Editor *ute) {
     NCURSES_COLOR_T active_attribute = COLOR_PAIR(DEFAULT_COLOR);
     attrset(active_attribute);
     size_t i = 0;
-    while(i < (size_t) height && i + display->sy < buffer->lines.count) {
-        Line line = buffer->lines.data[i+display->sy];
+    while(i < (size_t) height && i + buffer->sy < buffer->lines.count) {
+        Line line = buffer->lines.data[i+buffer->sy];
         move(i, 0);
-        size_t curr_char = line.start + display->sx;
+        size_t curr_char = line.start + buffer->sx;
         int j = 0;
         while(j < width && curr_char < line.end) {
             NCURSES_COLOR_T new_attribute = display->attr.data[curr_char];
@@ -315,8 +316,8 @@ void update_display(Editor *ute) {
     print_command_line(ute, "");
     refresh();
 
-    cur_y = cy - display->sy;
-    cur_x = cx - display->sx;
+    cur_y = cy - buffer->sy;
+    cur_x = cx - buffer->sx;
     if(cur_y >= height) cur_y = height - 1;
     move(cur_y, cur_x);
     refresh();
@@ -358,8 +359,8 @@ void print_status_line(Editor *ute) {
     int cy, cx;
 
     buffer_posyx(buffer, buffer->cursor, &cy, &cx);
-    if (ute->buffer.file_name) {
-        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", ute->buffer.file_name);
+    if (buffer->file_name) {
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", buffer->file_name);
     } else {
         left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", "[New File]");
     }
@@ -383,3 +384,18 @@ void print_status_line(Editor *ute) {
     attroff(A_REVERSE);
 }
 
+int editor_buffers_next(Editor *ute) {
+    int next_buffer = ute->curr_buffer + 1;
+    int buffers_count = ute->buffers.count;
+    ute->curr_buffer = ((next_buffer % buffers_count) + buffers_count) % buffers_count;
+    ute->display.up_to_date = false;
+    return 0;
+}
+
+int editor_buffers_prev(Editor *ute) {
+    int next_buffer = ute->curr_buffer - 1;
+    int buffers_count = ute->buffers.count;
+    ute->curr_buffer = ((next_buffer % buffers_count) + buffers_count) % buffers_count;
+    ute->display.up_to_date = false;
+    return 0;
+}
