@@ -156,10 +156,63 @@ int manage_key(Editor *ute) {
                     }
                 } break;
                 case 'D':
-                    buffer_remove_selection(buffer);
-                    buffer->dirty = 1;
-                    ute->display.up_to_date = false;
-                    break;
+                {
+                    if(buffer->lines.count > 0) {
+                        History_Item hi_item = {0};
+                        int remove_start = buffer->mark_position;
+
+                        int save_start, save_end;
+                        int rx, ry, cx, cy;
+
+                        // NOTE: use the remove side of the diff
+                        buffer_posyx(buffer, remove_start, &ry, &rx);
+                        buffer_posyx(buffer, buffer->cursor, &cy, &cx);
+                        save_start = buffer->lines.data[ry].start;
+                        save_end = buffer->lines.data[cy].end;
+                        ute_da_append_many(&hi_item.remove, &buffer->sb.data[save_start], save_end - save_start);
+                        hi_item.remove_start = save_start;
+
+                        buffer_remove_selection(buffer);
+                        buffer_parse_line(buffer);
+
+                        // NOTE: use the insert side of the diff
+                        buffer_posyx(buffer, buffer->cursor, &cy, &cx);
+
+                        save_start = buffer->lines.data[cy].start;
+                        save_end = buffer->lines.data[cy].end;
+                        ute_da_append_many(&hi_item.insert, &buffer->sb.data[save_start], save_end - save_start);
+                        hi_item.insert_start = save_start;
+
+                        ute_da_append(&ute->history.undo_list, hi_item);
+                        buffer->dirty = 1;
+                        ute->display.up_to_date = false;
+                    }
+                } break;
+                case 'u':
+                {
+                    if(ute->history.undo_list.count > 0) {
+                        History_Item restore = ute->history.undo_list.data[ute->history.undo_list.count - 1];
+                        if(restore.insert.count > 0) {
+                            int mark_position = buffer->mark_position;
+
+                            int restore_start = restore.insert_start;
+                            buffer->mark_position = restore_start;
+                            buffer_set_cursor(buffer, restore_start + restore.insert.count);
+                            buffer_remove_selection(buffer);
+
+                            buffer->mark_position = mark_position;
+                        }
+                        if(restore.remove.count > 0) {
+                            int restore_start = restore.remove_start;
+                            buffer_set_cursor(buffer, restore_start);
+                            buffer_insert_str(buffer, restore.remove.data, restore.remove.count);
+                        }
+                        ute->history.undo_list.count--;
+                        ute_da_append(&ute->history.redo_list, restore);
+                        ute->display.up_to_date = false;
+                    }
+
+                } break;
                 case KEY_CTRL('c'):
                     return 1;
                 case KEY_CTRL('s'):

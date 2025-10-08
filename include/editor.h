@@ -2,6 +2,7 @@
 #define EDITOR_H
 
 #include "buffer.h"
+#include "history.h"
 
 typedef struct {
     int *data;
@@ -34,6 +35,7 @@ typedef struct {
     int curr_buffer;
     Display display;
     Buffers buffers;
+    History history;
     char cwd[MAX_STR_SIZE];
     Buffer command;
     Editor_Mode mode;
