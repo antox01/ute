@@ -65,6 +65,8 @@
         } \
     } while(0)
 
+#define ute_da_last(da) ((da)->data[(da)->count - 1])
+
 /* ute_da_append:
  * Macro to append an element to a dynamic array.
  */

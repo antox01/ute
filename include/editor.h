@@ -55,4 +55,5 @@ int editor_write(Editor *ute);
 int editor_command(Editor *ute);
 int editor_buffers_next(Editor *ute);
 int editor_buffers_prev(Editor *ute);
+int editor_remove_selection(Editor *ute);
 #endif// EDITOR_H

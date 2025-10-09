@@ -11,6 +11,7 @@ struct {
     { .name = "write", .func = editor_write},
     { .name = "bnext", .func = editor_buffers_next},
     { .name = "bprev", .func = editor_buffers_prev},
+    { .name = "remove-selection", .func = editor_remove_selection},
 };
 
 Command_Func *command_search_name(String_View sv) {

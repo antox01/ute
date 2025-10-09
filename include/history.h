@@ -3,26 +3,37 @@
 
 #include "utils.h"
 
-typedef struct {
-    String_Builder insert;
-    String_Builder remove;
-    int insert_start;
-    int remove_start;
-} History_Item;
-
+typedef enum {
+    CMD_DELETE,
+    CMD_INSERT,
+} Command_Kind;
 
 typedef struct {
-    History_Item *data;
+    String_Builder sb;
+    int cursor_start;
+    int cursor_end;
+} Delete;
+
+typedef struct {
+
+} Insert;
+
+typedef struct {
+    Delete del;
+    Command_Kind kind;
+} Command;
+
+typedef struct {
+    Command *data;
     size_t count;
     size_t max_size;
-} History_Items;
+} Commands;
 
 typedef struct {
-    History_Items undo_list;
-    History_Items redo_list;
+    Commands undo_list;
+    Commands redo_list;
 } History;
 
 void history_free(History *h);
-void history_item_free(History_Item *hi);
 
 #endif // HISTORY_H
