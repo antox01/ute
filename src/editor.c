@@ -226,7 +226,7 @@ void update_display(Editor *ute) {
         }
 
         // NOTE: displaying the start of the mark for the selection
-        if(display->attr.count > 0) display->attr.data[buffer->mark_position] = A_REVERSE;
+        if(display->attr.count > 0) display->attr.data[buffer->mark_position] = COLOR_PAIR(MARK_SELECTION_COLOR);
 
 
         // Highlight the searched character

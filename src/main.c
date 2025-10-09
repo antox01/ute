@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
     init_pair(LITERAL_COLOR, COLOR_MAGENTA, COLOR_BLACK);
     init_pair(HIGHLIGHT_COLOR, COLOR_BLACK, COLOR_YELLOW);
 
+    init_pair(MARK_SELECTION_COLOR, COLOR_BLACK, COLOR_GREEN);
     init_pair(STATUS_LINE_COLOR, COLOR_WHITE, COLOR_BLACK);
 
     getmaxyx(stdscr, ute.screen_height, ute.screen_width);

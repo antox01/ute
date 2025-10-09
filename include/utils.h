@@ -7,14 +7,15 @@
 #include <ncurses.h>
 #include <assert.h>
 
-#define DEFAULT_COLOR   1
-#define KEYWORD_COLOR   2
-#define TYPE_COLOR      3
-#define COMMENT_COLOR   4
-#define PREPROC_COLOR   5
-#define LITERAL_COLOR   6
-#define HIGHLIGHT_COLOR 9
-#define STATUS_LINE_COLOR 16
+#define DEFAULT_COLOR         1
+#define KEYWORD_COLOR         2
+#define TYPE_COLOR            3
+#define COMMENT_COLOR         4
+#define PREPROC_COLOR         5
+#define LITERAL_COLOR         6
+#define HIGHLIGHT_COLOR       9
+#define MARK_SELECTION_COLOR 10
+#define STATUS_LINE_COLOR    16
 
 #define STATUS_LINE_SPACE 2
 #define STATUS_LINE_RIGHT_CHAR 20
