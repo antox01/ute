@@ -35,7 +35,6 @@ typedef struct {
     int curr_buffer;
     Display display;
     Buffers buffers;
-    History history;
     char cwd[MAX_STR_SIZE];
     Buffer command;
     Editor_Mode mode;

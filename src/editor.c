@@ -413,7 +413,7 @@ int editor_remove_selection(Editor *ute) {
 
         buffer_remove_selection(buffer);
 
-        ute_da_append(&ute->history.undo_list, command);
+        ute_da_append(&buffer->history.undo_list, command);
         buffer->dirty = 1;
         ute->display.up_to_date = false;
     }

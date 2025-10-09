@@ -1,6 +1,7 @@
 #ifndef BUFFER_H_DEF
 #define BUFFER_H_DEF
 
+#include "history.h"
 #include "line.h"
 #include "utils.h"
 
@@ -18,6 +19,7 @@ typedef struct buffer_s_ {
     int sx;
     int sy;
 
+    History history;
     Lines lines;
     String_Builder sb;
 } Buffer;

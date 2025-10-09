@@ -162,8 +162,8 @@ int manage_key(Editor *ute) {
                 } break;
                 case 'u':
                 {
-                    if(ute->history.undo_list.count > 0) {
-                        Command last = ute_da_last(&ute->history.undo_list);
+                    if(buffer->history.undo_list.count > 0) {
+                        Command last = ute_da_last(&buffer->history.undo_list);
                         switch(last.kind) {
                             case CMD_DELETE:
                             {
@@ -175,14 +175,14 @@ int manage_key(Editor *ute) {
                             default:
                                 UTE_ASSERT(0, "ERROR: Command received command not handled");
                         }
-                        ute_da_append(&ute->history.redo_list, last);
-                        ute->history.undo_list.count--;
+                        ute_da_append(&buffer->history.redo_list, last);
+                        buffer->history.undo_list.count--;
                         ute->display.up_to_date = false;
                     }
                 } break;
                 case 'r':
-                    if(ute->history.redo_list.count > 0) {
-                        Command last = ute_da_last(&ute->history.redo_list);
+                    if(buffer->history.redo_list.count > 0) {
+                        Command last = ute_da_last(&buffer->history.redo_list);
                         switch(last.kind) {
                             case CMD_DELETE:
                             {
@@ -195,8 +195,8 @@ int manage_key(Editor *ute) {
                             default:
                                 UTE_ASSERT(0, "ERROR: Command received command not handled");
                         }
-                        ute_da_append(&ute->history.undo_list, last);
-                        ute->history.redo_list.count--;
+                        ute_da_append(&buffer->history.undo_list, last);
+                        buffer->history.redo_list.count--;
                         ute->display.up_to_date = false;
                     }
                 {
