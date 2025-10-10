@@ -165,6 +165,13 @@ int manage_key(Editor *ute) {
                     if(buffer->history.undo_list.count > 0) {
                         Command last = ute_da_last(&buffer->history.undo_list);
                         switch(last.kind) {
+                            case CMD_INSERT:
+                            {
+                                int saved_cursor = buffer->cursor;
+                                buffer_set_cursor(buffer, last.ins.cursor_start);
+                                buffer_remove(buffer);
+                                buffer_set_cursor(buffer, last.ins.cursor_start < saved_cursor ? 1 + saved_cursor : saved_cursor);
+                            } break;
                             case CMD_DELETE:
                             {
                                 int saved_cursor = buffer->cursor;
@@ -184,6 +191,13 @@ int manage_key(Editor *ute) {
                     if(buffer->history.redo_list.count > 0) {
                         Command last = ute_da_last(&buffer->history.redo_list);
                         switch(last.kind) {
+                            case CMD_INSERT:
+                            {
+                                int saved_cursor = buffer->cursor;
+                                buffer_set_cursor(buffer, last.ins.cursor_start);
+                                buffer_insert(buffer, last.ins.ch);
+                                buffer_set_cursor(buffer, last.ins.cursor_start < saved_cursor ? saved_cursor - 1 : saved_cursor);
+                            } break;
                             case CMD_DELETE:
                             {
                                 int saved_cursor = buffer->cursor;
@@ -246,17 +260,23 @@ int manage_key(Editor *ute) {
                     break;
                 default:
                 {
-                    //TODO: manage all ctrl keybinding
+                    // TODO: Combine the insert actions to be only one and being limited
+                    // to a String Builder
 
                     if(is_printable(ch)) {
+                        Command command = {0};
+                        command.kind = CMD_INSERT;
+                        command.ins.cursor_start = buffer->cursor + 1;
                         // Convert tab key to multiple spaces
                         if(EXPAND_TAB && ch == '\t') {
                             for(int i = 0; i < TAB_TO_SPACE; i++) {
+                                command.ins.ch = ' ';
+                                ute_da_append(&buffer->history.undo_list, command);
                                 buffer_insert(buffer, ' ');
                             }
                         } else {
-                            //line_add_char(&ute.lines[ute.cy], ch, ute.cx);
-                            //ute.cx++;
+                            command.ins.ch = ch;
+                            ute_da_append(&buffer->history.undo_list, command);
                             buffer_insert(buffer, ch);
                         }
                         buffer->dirty = 1;

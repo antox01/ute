@@ -15,11 +15,15 @@ typedef struct {
 } Delete;
 
 typedef struct {
-
+    char ch;
+    int cursor_start;
 } Insert;
 
 typedef struct {
-    Delete del;
+    union{
+        Delete del;
+        Insert ins;
+    };
     Command_Kind kind;
 } Command;
 
