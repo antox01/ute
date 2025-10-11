@@ -167,17 +167,16 @@ int manage_key(Editor *ute) {
                         switch(last.kind) {
                             case CMD_INSERT:
                             {
-                                int saved_cursor = buffer->cursor;
-                                buffer_set_cursor(buffer, last.ins.cursor_start);
-                                buffer_remove(buffer);
-                                buffer_set_cursor(buffer, last.ins.cursor_start < saved_cursor ? 1 + saved_cursor : saved_cursor);
+                                buffer->mark_position = last.ins.cursor_start;
+                                buffer_set_cursor(buffer, last.ins.cursor_end);
+                                buffer_remove_selection(buffer);
                             } break;
                             case CMD_DELETE:
                             {
                                 int saved_cursor = buffer->cursor;
                                 buffer_set_cursor(buffer, last.del.cursor_start);
                                 buffer_insert_str(buffer, last.del.sb.data, last.del.sb.count);
-                                buffer_set_cursor(buffer, last.del.cursor_start < saved_cursor ? last.del.cursor_end + saved_cursor : saved_cursor);
+                                buffer_set_cursor(buffer, last.del.cursor_start < saved_cursor ? last.del.sb.count + saved_cursor : saved_cursor);
                             } break;
                             default:
                                 UTE_ASSERT(0, "ERROR: Command received command not handled");
@@ -188,15 +187,14 @@ int manage_key(Editor *ute) {
                     }
                 } break;
                 case 'r':
+                {
                     if(buffer->history.redo_list.count > 0) {
                         Command last = ute_da_last(&buffer->history.redo_list);
                         switch(last.kind) {
                             case CMD_INSERT:
                             {
-                                int saved_cursor = buffer->cursor;
                                 buffer_set_cursor(buffer, last.ins.cursor_start);
-                                buffer_insert(buffer, last.ins.ch);
-                                buffer_set_cursor(buffer, last.ins.cursor_start < saved_cursor ? saved_cursor - 1 : saved_cursor);
+                                buffer_insert_str(buffer, last.ins.sb.data, last.ins.sb.count);
                             } break;
                             case CMD_DELETE:
                             {
@@ -204,7 +202,7 @@ int manage_key(Editor *ute) {
                                 buffer->mark_position = last.del.cursor_start;
                                 buffer_set_cursor(buffer, last.del.cursor_end);
                                 buffer_remove_selection(buffer);
-                                buffer_set_cursor(buffer, last.del.cursor_start < saved_cursor ? saved_cursor - last.del.cursor_end: saved_cursor);
+                                buffer_set_cursor(buffer, last.del.cursor_start < saved_cursor ? saved_cursor - last.del.sb.count: saved_cursor);
                             } break;
                             default:
                                 UTE_ASSERT(0, "ERROR: Command received command not handled");
@@ -213,7 +211,6 @@ int manage_key(Editor *ute) {
                         buffer->history.redo_list.count--;
                         ute->display.up_to_date = false;
                     }
-                {
                 } break;
                 case KEY_CTRL('c'):
                     return 1;
@@ -235,6 +232,10 @@ int manage_key(Editor *ute) {
             switch (ch) {
                 case KEY_ESCAPE:
                 case KEY_CTRL('c'):
+                    if(buffer->history.current.kind != CMD_NONE) {
+                        ute_da_append(&buffer->history.undo_list, buffer->history.current);
+                        buffer->history.current = (Command) {0};
+                    }
                     ute->mode = NORMAL_MODE;
                     break;
                 case KEY_DOWN:
@@ -254,29 +255,33 @@ int manage_key(Editor *ute) {
                     fallthrough;
                 case 127:
                 case KEY_BACKSPACE:
+                {
                     buffer_remove(buffer);
                     buffer->dirty = 1;
                     ute->display.up_to_date = false;
-                    break;
+                } break;
                 default:
                 {
                     // TODO: Combine the insert actions to be only one and being limited
                     // to a String Builder
 
                     if(is_printable(ch)) {
-                        Command command = {0};
-                        command.kind = CMD_INSERT;
-                        command.ins.cursor_start = buffer->cursor + 1;
+                        Command *command = &buffer->history.current;
+                        if(command->kind == CMD_NONE) {
+                            command->kind = CMD_INSERT;
+                            command->ins.cursor_start = buffer->cursor;
+                            command->ins.cursor_end = buffer->cursor;
+                        }
                         // Convert tab key to multiple spaces
                         if(EXPAND_TAB && ch == '\t') {
                             for(int i = 0; i < TAB_TO_SPACE; i++) {
-                                command.ins.ch = ' ';
-                                ute_da_append(&buffer->history.undo_list, command);
+                                ute_da_append(&command->ins.sb, ' ');
+                                command->ins.cursor_end++;
                                 buffer_insert(buffer, ' ');
                             }
                         } else {
-                            command.ins.ch = ch;
-                            ute_da_append(&buffer->history.undo_list, command);
+                            ute_da_append(&command->ins.sb, ch);
+                            command->ins.cursor_end++;
                             buffer_insert(buffer, ch);
                         }
                         buffer->dirty = 1;

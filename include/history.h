@@ -4,6 +4,7 @@
 #include "utils.h"
 
 typedef enum {
+    CMD_NONE,
     CMD_DELETE,
     CMD_INSERT,
 } Command_Kind;
@@ -15,8 +16,9 @@ typedef struct {
 } Delete;
 
 typedef struct {
-    char ch;
+    String_Builder sb;
     int cursor_start;
+    int cursor_end;
 } Insert;
 
 typedef struct {
@@ -36,6 +38,8 @@ typedef struct {
 typedef struct {
     Commands undo_list;
     Commands redo_list;
+
+    Command current;
 } History;
 
 void history_free(History *h);
