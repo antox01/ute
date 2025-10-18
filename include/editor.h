@@ -29,7 +29,7 @@ typedef enum {
 } Editor_Mode;
 
 typedef struct {
-    //int cx, cy;
+    int quit;
     int scroll; // This variable is used to store the position of the first character to display
     int screen_width, screen_height;
     int curr_buffer;
@@ -51,6 +51,7 @@ void print_command_line(Editor *ute, const char* msg);
 int editor_search_word(Editor *ute);
 int editor_open(Editor *ute);
 int editor_write(Editor *ute);
+int editor_quit(Editor *ute);
 int editor_command(Editor *ute);
 int editor_buffers_next(Editor *ute);
 int editor_buffers_prev(Editor *ute);

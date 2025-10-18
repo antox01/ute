@@ -170,6 +170,13 @@ int editor_write(Editor *ute) {
     return 0;
 }
 
+int editor_quit(Editor *ute) {
+    // TODO: manage all dirty buffers to avoid closing without saving them
+
+    ute->quit = 1;
+    return 0;
+}
+
 void update_display(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
     int saved_cursor = buffer->cursor;

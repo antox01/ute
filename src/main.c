@@ -75,12 +75,10 @@ int main(int argc, char **argv) {
         ute.curr_buffer = ute.buffers.count - 1;
     }
 
-    int stop = 0;
-
     update_display(&ute);
 
-    while (!stop) {
-        stop = manage_key(&ute);
+    while (!ute.quit) {
+        manage_key(&ute);
         update_display(&ute);
     }
     endwin();
@@ -213,7 +211,8 @@ int manage_key(Editor *ute) {
                     }
                 } break;
                 case KEY_CTRL('c'):
-                    return 1;
+                    editor_quit(ute);
+                    break;
                 case KEY_CTRL('s'):
                     editor_write(ute);
                     break;
