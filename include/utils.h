@@ -77,6 +77,17 @@
         (da)->count += 1; \
     } while(0)
 
+/* ute_da_insert_first:
+ * Macro to append an element to a dynamic array.
+ */
+#define ute_da_insert_first(da,item) \
+    do {\
+        ute_da_reserve((da), (da)->count + 1);\
+        for(int i = (da)->count; i > 0; i--) (da)->data[i] = (da)->data[i - 1]; \
+        (da)->data[0] = (item); \
+        (da)->count += 1; \
+    } while(0)
+
 /* ute_da_append_many:
  * Macro to append many elements to a dynamic array.
  */

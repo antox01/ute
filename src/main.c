@@ -238,24 +238,51 @@ int manage_key(Editor *ute) {
                     }
                     ute->mode = NORMAL_MODE;
                     break;
-                case KEY_DOWN:
-                    buffer_next_line(buffer);
-                    break;
-                case KEY_UP:
-                    buffer_prev_line(buffer);
-                    break;
-                case KEY_RIGHT:
-                    buffer_right(buffer);
-                    break;
-                case KEY_LEFT:
-                    buffer_left(buffer);
-                    break;
+                // case KEY_DOWN:
+                //     buffer_next_line(buffer);
+                //     break;
+                // case KEY_UP:
+                //     buffer_prev_line(buffer);
+                //     break;
+                // case KEY_RIGHT:
+                //     buffer_right(buffer);
+                //     break;
+                // case KEY_LEFT:
+                //     buffer_left(buffer);
+                //     break;
                 case KEY_DC:
                     buffer_right(buffer);
-                    fallthrough;
+                    Command *command = &buffer->history.current;
+                    if(command->kind != CMD_DELETE) {
+                        if(command->kind != CMD_NONE) {
+                            ute_da_append(&buffer->history.undo_list, *command);
+                            *command = (Command){0};
+                        }
+                        command->kind = CMD_DELETE;
+                        command->del.cursor_start = buffer->cursor - 1;
+                        command->del.cursor_end = buffer->cursor - 1;
+                    }
+                    ute_da_append(&command->del.sb, buffer->data[buffer->cursor-1]);
+                    command->del.cursor_end++;
+                    buffer_remove(buffer);
+                    buffer->dirty = 1;
+                    ute->display.up_to_date = false;
+                    break;
                 case 127:
                 case KEY_BACKSPACE:
                 {
+                    Command *command = &buffer->history.current;
+                    if(command->kind != CMD_DELETE) {
+                        if(command->kind != CMD_NONE) {
+                            ute_da_append(&buffer->history.undo_list, *command);
+                            *command = (Command){0};
+                        }
+                        command->kind = CMD_DELETE;
+                        command->del.cursor_start = buffer->cursor;
+                        command->del.cursor_end = buffer->cursor;
+                    }
+                    ute_da_insert_first(&command->del.sb, buffer->data[buffer->cursor - 1]);
+                    command->del.cursor_start--;
                     buffer_remove(buffer);
                     buffer->dirty = 1;
                     ute->display.up_to_date = false;
@@ -267,7 +294,11 @@ int manage_key(Editor *ute) {
 
                     if(is_printable(ch)) {
                         Command *command = &buffer->history.current;
-                        if(command->kind == CMD_NONE) {
+                        if(command->kind != CMD_INSERT) {
+                            if(command->kind != CMD_NONE) {
+                                ute_da_append(&buffer->history.undo_list, *command);
+                                *command = (Command){0};
+                            }
                             command->kind = CMD_INSERT;
                             command->ins.cursor_start = buffer->cursor;
                             command->ins.cursor_end = buffer->cursor;
