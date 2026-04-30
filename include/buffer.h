@@ -1,6 +1,9 @@
 #ifndef BUFFER_H_DEF
 #define BUFFER_H_DEF
 
+// TODO: There is a circular dependency now, it should be removed by separating the gap_buffer
+// from the `editor buffer`
+
 #include "history.h"
 #include "line.h"
 #include "utils.h"

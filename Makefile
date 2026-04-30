@@ -9,6 +9,7 @@ LD_FLAGS=-lncurses
 OUT_FILES+=out/buffer.o
 OUT_FILES+=out/main.o
 OUT_FILES+=out/lexer.o
+OUT_FILES+=out/history.o
 OUT_FILES+=out/utils.o
 OUT_FILES+=out/editor.o
 OUT_FILES+=out/commands.o
@@ -32,6 +33,9 @@ out/line.o: src/line.c
 
 out/buffer.o: src/buffer.c include/buffer.h include/line.h include/utils.h include/history.h
 	$(CC) $(DBG_FLAGS-y) -c -o out/buffer.o src/buffer.c $(CFLAGS) $(IFLAGS)
+
+out/history.o: include/utils.h include/history.h src/history.c include/buffer.h
+	$(CC) $(DBG_FLAGS-y) -c -o out/history.o src/history.c $(CFLAGS) $(IFLAGS)
 
 out/lexer.o: src/lexer.c include/lexer.h include/utils.h
 	$(CC) $(DBG_FLAGS-y) -c -o out/lexer.o src/lexer.c $(CFLAGS) $(IFLAGS)
