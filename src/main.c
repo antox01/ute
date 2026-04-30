@@ -160,55 +160,11 @@ int manage_key(Editor *ute) {
                 } break;
                 case 'u':
                 {
-                    if(buffer->history.undo_list.count > 0) {
-                        Command last = ute_da_last(&buffer->history.undo_list);
-                        switch(last.kind) {
-                            case CMD_INSERT:
-                            {
-                                buffer->mark_position = last.ins.cursor_start;
-                                buffer_set_cursor(buffer, last.ins.cursor_end);
-                                buffer_remove_selection(buffer);
-                            } break;
-                            case CMD_DELETE:
-                            {
-                                int saved_cursor = buffer->cursor;
-                                buffer_set_cursor(buffer, last.del.cursor_start);
-                                buffer_insert_str(buffer, last.del.sb.data, last.del.sb.count);
-                                buffer_set_cursor(buffer, last.del.cursor_start < saved_cursor ? last.del.sb.count + saved_cursor : saved_cursor);
-                            } break;
-                            default:
-                                UTE_ASSERT(0, "ERROR: Command received command not handled");
-                        }
-                        ute_da_append(&buffer->history.redo_list, last);
-                        buffer->history.undo_list.count--;
-                        ute->display.up_to_date = false;
-                    }
+                    editor_undo(ute);
                 } break;
                 case 'r':
                 {
-                    if(buffer->history.redo_list.count > 0) {
-                        Command last = ute_da_last(&buffer->history.redo_list);
-                        switch(last.kind) {
-                            case CMD_INSERT:
-                            {
-                                buffer_set_cursor(buffer, last.ins.cursor_start);
-                                buffer_insert_str(buffer, last.ins.sb.data, last.ins.sb.count);
-                            } break;
-                            case CMD_DELETE:
-                            {
-                                int saved_cursor = buffer->cursor;
-                                buffer->mark_position = last.del.cursor_start;
-                                buffer_set_cursor(buffer, last.del.cursor_end);
-                                buffer_remove_selection(buffer);
-                                buffer_set_cursor(buffer, last.del.cursor_start < saved_cursor ? saved_cursor - last.del.sb.count: saved_cursor);
-                            } break;
-                            default:
-                                UTE_ASSERT(0, "ERROR: Command received command not handled");
-                        }
-                        ute_da_append(&buffer->history.undo_list, last);
-                        buffer->history.redo_list.count--;
-                        ute->display.up_to_date = false;
-                    }
+                    editor_redo(ute);
                 } break;
                 case KEY_CTRL('c'):
                     editor_quit(ute);
