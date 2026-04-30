@@ -10,23 +10,10 @@ typedef enum {
 } Command_Kind;
 
 typedef struct {
-    String_Builder sb;
-    int cursor_start;
-    int cursor_end;
-} Delete;
-
-typedef struct {
-    String_Builder sb;
-    int cursor_start;
-    int cursor_end;
-} Insert;
-
-typedef struct {
-    union{
-        Delete del;
-        Insert ins;
-    };
     Command_Kind kind;
+    String_Builder sb;
+    int cursor_start;
+    int cursor_end;
 } Command;
 
 typedef struct {
@@ -42,6 +29,8 @@ typedef struct {
     Command current;
 } History;
 
+bool history_undo(History *h, void *b);
+bool history_redo(History *h, void *b);
 void history_free(History *h);
 
 #endif // HISTORY_H

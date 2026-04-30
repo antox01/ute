@@ -214,11 +214,11 @@ int manage_key(Editor *ute) {
                             *command = (Command){0};
                         }
                         command->kind = CMD_DELETE;
-                        command->del.cursor_start = buffer->cursor - 1;
-                        command->del.cursor_end = buffer->cursor - 1;
+                        command->cursor_start = buffer->cursor - 1;
+                        command->cursor_end = buffer->cursor - 1;
                     }
-                    ute_da_append(&command->del.sb, buffer->data[buffer->cursor-1]);
-                    command->del.cursor_end++;
+                    ute_da_append(&command->sb, buffer->data[buffer->cursor-1]);
+                    command->cursor_end++;
                     buffer_remove(buffer);
                     buffer->dirty = 1;
                     ute->display.up_to_date = false;
@@ -233,11 +233,11 @@ int manage_key(Editor *ute) {
                             *command = (Command){0};
                         }
                         command->kind = CMD_DELETE;
-                        command->del.cursor_start = buffer->cursor;
-                        command->del.cursor_end = buffer->cursor;
+                        command->cursor_start = buffer->cursor;
+                        command->cursor_end = buffer->cursor;
                     }
-                    ute_da_insert_first(&command->del.sb, buffer->data[buffer->cursor - 1]);
-                    command->del.cursor_start--;
+                    ute_da_insert_first(&command->sb, buffer->data[buffer->cursor - 1]);
+                    command->cursor_start--;
                     buffer_remove(buffer);
                     buffer->dirty = 1;
                     ute->display.up_to_date = false;
@@ -255,19 +255,19 @@ int manage_key(Editor *ute) {
                                 *command = (Command){0};
                             }
                             command->kind = CMD_INSERT;
-                            command->ins.cursor_start = buffer->cursor;
-                            command->ins.cursor_end = buffer->cursor;
+                            command->cursor_start = buffer->cursor;
+                            command->cursor_end = buffer->cursor;
                         }
                         // Convert tab key to multiple spaces
                         if(EXPAND_TAB && ch == '\t') {
                             for(int i = 0; i < TAB_TO_SPACE; i++) {
-                                ute_da_append(&command->ins.sb, ' ');
-                                command->ins.cursor_end++;
+                                ute_da_append(&command->sb, ' ');
+                                command->cursor_end++;
                                 buffer_insert(buffer, ' ');
                             }
                         } else {
-                            ute_da_append(&command->ins.sb, ch);
-                            command->ins.cursor_end++;
+                            ute_da_append(&command->sb, ch);
+                            command->cursor_end++;
                             buffer_insert(buffer, ch);
                         }
                         buffer->dirty = 1;
