@@ -13,6 +13,52 @@
 
 #include "history.h"
 #include "buffer.h"
+#include "utils.h"
+
+void history_free_command_list(Commands *list) {
+    for(size_t i = 0; i < list->count; i++) {
+        free(list->data[i].sb.data);
+    }
+    list->count = 0;
+}
+
+void history_insert_char(History *h, int cursor, char c) {
+    if(h->redo_list.count > 0) history_free_command_list(&h->redo_list);
+    if(h->undo_list.count > 0) {
+        Command *command = &ute_da_last(&h->undo_list);
+        if(command->kind == CMD_INSERT && command->cursor_end == cursor) {
+            ute_da_append(&command->sb, c);
+            command->cursor_end++;
+            return;
+        }
+    }
+    Command new_command = {
+        .kind = CMD_INSERT,
+        .cursor_start = cursor,
+        .cursor_end = cursor+1,
+    };
+    ute_da_append(&new_command.sb, c);
+    ute_da_append(&h->undo_list, new_command);
+}
+
+void history_delete_char(History *h, int cursor, char c) {
+    if(h->redo_list.count > 0) history_free_command_list(&h->redo_list);
+    if(h->undo_list.count > 0) {
+        Command *command = &ute_da_last(&h->undo_list);
+        if(command->kind == CMD_DELETE && command->cursor_start == cursor) {
+            ute_da_insert_first(&command->sb, c);
+            command->cursor_start--;
+            return;
+        }
+    }
+    Command new_command = {
+        .kind = CMD_DELETE,
+        .cursor_start = cursor-1,
+        .cursor_end = cursor,
+    };
+    ute_da_insert_first(&new_command.sb, c);
+    ute_da_append(&h->undo_list, new_command);
+}
 
 bool history_undo(History *h, void *buffer) {
     Buffer *b = buffer;
@@ -65,4 +111,11 @@ bool history_redo(History *h, void *buffer) {
     ute_da_append(&h->undo_list, last);
     h->redo_list.count--;
     return true;
+}
+
+void history_free(History *h) {
+    history_free_command_list(&h->redo_list);
+    history_free_command_list(&h->undo_list);
+    free(h->redo_list.data);
+    free(h->undo_list.data);
 }
