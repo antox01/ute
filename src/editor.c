@@ -410,17 +410,10 @@ int editor_buffers_prev(Editor *ute) {
 int editor_remove_selection(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
     if(buffer->lines.count > 0) {
-        Command command = {0};
-        command.kind = CMD_DELETE;
         int mark_position = buffer->mark_position;
-        command.cursor_start = mark_position;
-
-        ute_da_append_many(&command.sb, &buffer->sb.data[mark_position], buffer->cursor - mark_position);
-        command.cursor_end = buffer->cursor;
-
+        history_delete_string(&buffer->history, buffer->cursor, &buffer->sb.data[mark_position], buffer->cursor - mark_position);
         buffer_remove_selection(buffer);
 
-        ute_da_append(&buffer->history.undo_list, command);
         buffer->dirty = 1;
         ute->display.up_to_date = false;
     }

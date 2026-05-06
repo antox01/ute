@@ -31,6 +31,7 @@ typedef struct {
 
 void history_insert_char(History *h, int cursor, char c);
 void history_delete_char(History *h, int cursor, char c);
+void history_delete_string(History *h, int cursor, char *buf, size_t buf_len);
 bool history_undo(History *h, void *b);
 bool history_redo(History *h, void *b);
 void history_free(History *h);

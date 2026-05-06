@@ -60,6 +60,17 @@ void history_delete_char(History *h, int cursor, char c) {
     ute_da_append(&h->undo_list, new_command);
 }
 
+void history_delete_string(History *h, int cursor, char *buf, size_t buf_len) {
+    if(h->redo_list.count > 0) history_free_command_list(&h->redo_list);
+    Command new_command = {
+        .kind = CMD_DELETE,
+        .cursor_start = cursor - buf_len,
+        .cursor_end = cursor,
+    };
+    ute_da_append_many(&new_command.sb, buf, buf_len);
+    ute_da_append(&h->undo_list, new_command);
+}
+
 bool history_undo(History *h, void *buffer) {
     Buffer *b = buffer;
     if(h->undo_list.count == 0) return false;
