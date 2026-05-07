@@ -7,6 +7,7 @@ CFLAGS=-Wall -Wextra
 LD_FLAGS=-lncurses
 # OUT_FILES+=out/line.o
 OUT_FILES+=out/buffer.o
+OUT_FILES+=out/bindings.o
 OUT_FILES+=out/main.o
 OUT_FILES+=out/lexer.o
 OUT_FILES+=out/history.o
@@ -33,6 +34,9 @@ out/line.o: src/line.c
 
 out/buffer.o: src/buffer.c include/buffer.h include/line.h include/utils.h include/history.h
 	$(CC) $(DBG_FLAGS-y) -c -o out/buffer.o src/buffer.c $(CFLAGS) $(IFLAGS)
+
+out/bindings.o: src/bindings.c include/bindings.h include/utils.h
+	$(CC) $(DBG_FLAGS-y) -c -o out/bindings.o src/bindings.c $(CFLAGS) $(IFLAGS)
 
 out/history.o: include/utils.h include/history.h src/history.c include/buffer.h
 	$(CC) $(DBG_FLAGS-y) -c -o out/history.o src/history.c $(CFLAGS) $(IFLAGS)

@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include "bindings.h"
 #include "commands.h"
 #include "editor.h"
 #include "lexer.h"
@@ -433,3 +434,185 @@ int editor_redo(Editor *ute) {
     ute->display.up_to_date = false;
     return 1;
 }
+
+void handle_normal_mode(Editor *ute, int ch) {
+    Buffer *buffer = current_buffer(ute);
+    if(ute->normal_state == NORMAL_STATE_IDLE) {
+        Operator_Func *operator = bindings_get_operator(ch);
+        if(operator != NULL) {
+            ute->operator = operator;
+            ute->normal_state = NORMAL_STATE_OPERATION;
+            return;
+        }
+        Motion_Func *motion = bindings_get_motion(ch);
+        if(motion != NULL) {
+            Range range = motion(ute);
+            buffer_set_cursor(buffer, range.end);
+            return;
+        }
+        switch (ch) {
+            case 'i':
+                ute->mode = INSERT_MODE;
+                break;
+            case KEY_DOWN:
+                buffer_next_line(buffer);
+                break;
+            case KEY_UP:
+                buffer_prev_line(buffer);
+                break;
+            case KEY_RIGHT:
+                buffer_right(buffer);
+                break;
+            case KEY_LEFT:
+                buffer_left(buffer);
+                break;
+            case 'v':
+                // TODO: make a function to wrap this operation, so it can
+                // be called as a command
+                buffer->mark_position = buffer->cursor;
+                ute->display.up_to_date = false;
+                break;
+            case ':':
+                editor_command(ute);
+                break;
+            case 'g':
+                {
+                    if(buffer->lines.count > 0) {
+                        int start = buffer->lines.data[0].start;
+                        buffer_set_cursor(buffer, start);
+                    }
+                } break;
+            case 'G':
+                {
+                    if(buffer->lines.count > 0) {
+                        int last_line = buffer->lines.count-1;
+                        int start = buffer->lines.data[last_line].start;
+                        buffer_set_cursor(buffer, start);
+                    }
+                } break;
+            case 'D':
+                {
+                    editor_remove_selection(ute);
+                } break;
+            case 'u':
+                {
+                    editor_undo(ute);
+                } break;
+            case 'r':
+                {
+                    editor_redo(ute);
+                } break;
+            // case KEY_CTRL('c'):
+            //     editor_quit(ute);
+            //     break;
+            case KEY_CTRL('s'):
+                editor_write(ute);
+                break;
+            case KEY_CTRL('o'):
+                if(!editor_open(ute)) {
+                    // TODO: print error when is not possible to open the file
+                }
+                break;
+            case KEY_CTRL('f'):
+                editor_search_word(ute);
+                break;
+        }
+    } else if(ute->normal_state == NORMAL_STATE_OPERATION) {
+        UTE_ASSERT(ute->operator != NULL, "ute->operator cannot be null");
+        Motion_Func *motion = bindings_get_motion(ch);
+        if(motion != NULL) {
+            Range range = motion(ute);
+            ute->operator(ute, range);
+        }
+        ute->normal_state = NORMAL_STATE_IDLE;
+    }
+}
+
+int manage_key(Editor *ute) {
+    int ch = getch();
+
+    Buffer *buffer = current_buffer(ute);
+    if (ch == KEY_RESIZE) {
+        getmaxyx(stdscr, ute->screen_height, ute->screen_width);
+        return 0;
+    }
+
+    switch(ute->mode) {
+        case NORMAL_MODE:
+            handle_normal_mode(ute, ch);
+            break;
+        case INSERT_MODE:
+        {
+            switch (ch) {
+                case KEY_ESCAPE:
+                case KEY_CTRL('c'):
+                    if(buffer->history.current.kind != CMD_NONE) {
+                        ute_da_append(&buffer->history.undo_list, buffer->history.current);
+                        buffer->history.current = (Command) {0};
+                    }
+                    ute->mode = NORMAL_MODE;
+                    break;
+                // case KEY_DOWN:
+                //     buffer_next_line(buffer);
+                //     break;
+                // case KEY_UP:
+                //     buffer_prev_line(buffer);
+                //     break;
+                // case KEY_RIGHT:
+                //     buffer_right(buffer);
+                //     break;
+                // case KEY_LEFT:
+                //     buffer_left(buffer);
+                //     break;
+                case KEY_DC:
+                    buffer_right(buffer);
+                    Command *command = &buffer->history.current;
+                    if(command->kind != CMD_DELETE) {
+                        if(command->kind != CMD_NONE) {
+                            ute_da_append(&buffer->history.undo_list, *command);
+                            *command = (Command){0};
+                        }
+                        command->kind = CMD_DELETE;
+                        command->cursor_start = buffer->cursor - 1;
+                        command->cursor_end = buffer->cursor - 1;
+                    }
+                    ute_da_append(&command->sb, buffer->data[buffer->cursor-1]);
+                    command->cursor_end++;
+                    buffer_remove(buffer);
+                    buffer->dirty = 1;
+                    ute->display.up_to_date = false;
+                    break;
+                case 127:
+                case KEY_BACKSPACE:
+                {
+                    history_delete_char(&buffer->history, buffer->cursor, buffer->data[buffer->cursor - 1]);
+                    buffer_remove(buffer);
+                    buffer->dirty = 1;
+                    ute->display.up_to_date = false;
+                } break;
+                default:
+                {
+                    // TODO: Combine the insert actions to be only one and being limited
+                    // to a String Builder
+
+                    if(is_printable(ch)) {
+                        // Convert tab key to multiple spaces
+                        if(EXPAND_TAB && ch == '\t') {
+                            for(int i = 0; i < TAB_TO_SPACE; i++) {
+                                history_insert_char(&buffer->history, buffer->cursor, ' ');
+                                buffer_insert(buffer, ' ');
+                            }
+                        } else {
+                            history_insert_char(&buffer->history, buffer->cursor, ch);
+                            buffer_insert(buffer, ch);
+                        }
+                        buffer->dirty = 1;
+                        ute->display.up_to_date = false;
+                    }
+                }
+            }
+        } break;
+    }
+    return 0;
+}
+

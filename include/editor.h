@@ -2,6 +2,7 @@
 #define EDITOR_H
 
 #include "buffer.h"
+#include "bindings.h"
 #include "history.h"
 
 typedef struct {
@@ -28,7 +29,12 @@ typedef enum {
     INSERT_MODE,
 } Editor_Mode;
 
-typedef struct {
+typedef enum {
+    NORMAL_STATE_IDLE,
+    NORMAL_STATE_OPERATION,
+} Editor_Normal_State;
+
+typedef struct editor {
     int quit;
     int scroll; // This variable is used to store the position of the first character to display
     int screen_width, screen_height;
@@ -38,6 +44,9 @@ typedef struct {
     char cwd[MAX_STR_SIZE];
     Buffer command;
     Editor_Mode mode;
+
+    Editor_Normal_State normal_state;
+    Operator_Func *operator;
 } Editor;
 
 Buffer *current_buffer(Editor *ute);
@@ -46,6 +55,8 @@ String_View read_command_line(Editor *ute, const char* msg);
 
 void print_status_line(Editor *ute);
 void print_command_line(Editor *ute, const char* msg);
+int manage_key(Editor *ute);
+
 
 
 int editor_search_word(Editor *ute);
