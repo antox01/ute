@@ -41,6 +41,9 @@ typedef struct {
 void buffer_free(Buffer *gb);
 void buffer_reset(Buffer *gb);
 
+char buffer_at(Buffer *buffer, int pos);
+int buffer_find_next_word(Buffer *buffer);
+int buffer_find_prev_word(Buffer *buffer);
 
 void buffer_prev_line(Buffer *buffer);
 void buffer_next_line(Buffer *buffer);
@@ -50,6 +53,7 @@ void buffer_right(Buffer *gb);
 void buffer_left(Buffer *gb);
 void buffer_remove(Buffer *gb);
 void buffer_remove_selection(Buffer *gb);
+void buffer_remove_range(Buffer *gb, Range range);
 void buffer_insert(Buffer *gb, char c);
 void buffer_insert_str(Buffer *gb, char *str, int size);
 void buffer_set_cursor(Buffer *gb, int cursor);

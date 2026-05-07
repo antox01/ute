@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #include "buffer.h"
+#include "utils.h"
 
 void buffer_free(Buffer *gb) {
     if(gb->file_name != NULL) free(gb->file_name);
@@ -121,6 +122,23 @@ void buffer_forward_word(Buffer *buffer) {
     }
 }
 
+int buffer_find_next_word(Buffer *buffer) {
+    int i = buffer->cursor;
+    int bs = buffer_size(buffer);
+    while(i < bs && isalnum(buffer_at(buffer, i))) i++;
+
+    while(i < bs && !isalnum(buffer_at(buffer, i))) i++;
+    return i;
+}
+
+int buffer_find_prev_word(Buffer *buffer) {
+    int i = buffer->cursor-1;
+    while(i > 0 && !isalnum(buffer_at(buffer, i))) i--;
+
+    while(i >= 0 && isalnum(buffer_at(buffer,i))) i--;
+    return i+1;
+}
+
 void buffer_backward_word(Buffer *buffer) {
     buffer_left(buffer);
     while(buffer->cursor > 0
@@ -178,6 +196,11 @@ void buffer_parse_line(Buffer *gb) {
 }
 
 
+void buffer_remove_range(Buffer *gb, Range range) {
+    buffer_set_cursor(gb, range.end);
+    while((size_t) gb->cursor > range.start) buffer_remove(gb);
+}
+
 void buffer_remove_selection(Buffer *gb) {
     if(gb->mark_position > gb->cursor) {
         int tmp = gb->cursor;
@@ -186,3 +209,9 @@ void buffer_remove_selection(Buffer *gb) {
     }
     while(gb->cursor > gb->mark_position) buffer_remove(gb);
 }
+
+char buffer_at(Buffer *buffer, int pos) {
+    if(pos < buffer->cursor) return buffer->data[pos];
+    return buffer->data[pos - buffer->cursor + buffer->gap_end];
+}
+
