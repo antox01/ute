@@ -111,8 +111,15 @@ typedef struct {
 
 char *sv_to_cstr(String_View sv);
 
+typedef struct {
+    size_t start;
+    size_t end;
+} Range;
+
 // File management functions
 int read_file(String_Builder *sb, const char *file_name);
 int get_file_size(FILE *fin, size_t *size);
+
+#define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
 
 #endif // COMMON_H

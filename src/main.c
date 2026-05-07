@@ -11,10 +11,6 @@
 #include "utils.h"
 #include "lexer.h"
 
-#define is_printable(x) ((0x20 <= x && x <= 0xFF) || x == '\n' || x == '\t')
-
-int manage_key(Editor *ute);
-
 char *shift_args(int *argc, char ***argv);
 
 int main(int argc, char **argv) {
