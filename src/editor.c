@@ -226,7 +226,7 @@ void update_display(Editor *ute) {
                     }
                     size_t j = 0;
                     while(j < l.token.count) {
-                        display->attr.data[j + l.token.start] = COLOR_PAIR(color);
+                        display->attr.data[j + l.token.start] = color;
                         j++;
                     }
                 }
@@ -234,13 +234,13 @@ void update_display(Editor *ute) {
         }
 
         // NOTE: displaying the start of the mark for the selection
-        if(display->attr.count > 0) display->attr.data[buffer->mark_position] = COLOR_PAIR(MARK_SELECTION_COLOR);
+        if(display->attr.count > 0) display->attr.data[buffer->mark_position] = MARK_SELECTION_COLOR;
 
 
         // Highlight the searched character
         size_t hl_it = 0;
         while(hl_it < ute->display.highlight_count) {
-            display->attr.data[hl_it + ute->display.highlight_search] = COLOR_PAIR(HIGHLIGHT_COLOR);
+            display->attr.data[hl_it + ute->display.highlight_search] = HIGHLIGHT_COLOR;
             hl_it++;
         }
         display->up_to_date = true;
@@ -260,75 +260,7 @@ void update_display(Editor *ute) {
 
     if(cx < buffer->sx) buffer->sx = cx;
     if(width <= cx - buffer->sx) buffer->sx = cx - width + 1;
-
-    int cur_x = 0;
-    int cur_y = 0;
-
-    display->count = 0;
-    NCURSES_COLOR_T active_attribute = COLOR_PAIR(DEFAULT_COLOR);
-    attrset(active_attribute);
-    size_t i = 0;
-    while(i < (size_t) height && i + buffer->sy < buffer->lines.count) {
-        Line line = buffer->lines.data[i+buffer->sy];
-        move(i, 0);
-        size_t curr_char = line.start + buffer->sx;
-        int j = 0;
-        while(j < width && curr_char < line.end) {
-            NCURSES_COLOR_T new_attribute = display->attr.data[curr_char];
-            if(new_attribute != active_attribute) {
-                active_attribute = new_attribute;
-                addnstr(display->data, display->count);
-                display->count = 0;
-                attrset(new_attribute);
-            }
-            if(buffer->sb.data[curr_char] == '\t') {
-                for(int ntab = 0; ntab < TAB_TO_SPACE; ntab++)
-                    ute_da_append(display, ' ');
-            } else ute_da_append(display, buffer->sb.data[curr_char]);
-
-            j++;
-            curr_char++;
-        }
-        // NOTE: manually cleaning the screen
-        // This solved the problem of the editor feeling too slow
-        // when displaying stuff on the screen
-        while(j++ < width) ute_da_append(display, ' ');
-
-        if(display->count > 0) {
-            addnstr(display->data, display->count);
-            display->count = 0;
-        }
-        i++;
-    }
-    // NOTE: clearing the remaining part of the screen
-    // if the text does not occupy it fully
-    while(i < (size_t) height) {
-        display->count = 0;
-        move(i, 0);
-        for(int j = 0; j < width; j++) ute_da_append(display, ' ');
-        addnstr(display->data, display->count);
-        i++;
-    }
-
-    // NOTE: take into account characters of different sizes
-    for(int curr_char = buffer->lines.data[cy].start; curr_char < saved_cursor; curr_char++) {
-        if(buffer->sb.data[curr_char] == '\t') cx += TAB_TO_SPACE - 1;
-    }
-
     buffer_set_cursor(buffer, saved_cursor);
-    attroff(COLOR_PAIR(active_attribute));
-    attron(COLOR_PAIR(STATUS_LINE_COLOR));
-
-    //TODO: update_display managing the reset of the cursor
-    print_status_line(ute);
-    print_command_line(ute, "");
-    refresh();
-
-    cur_y = cy - buffer->sy;
-    cur_x = cx - buffer->sx;
-    if(cur_y >= height) cur_y = height - 1;
-    move(cur_y, cur_x);
-    refresh();
 }
 
 String_View read_command_line(Editor *ute, const char* msg) {
@@ -528,90 +460,81 @@ void handle_normal_mode(Editor *ute, int ch) {
     }
 }
 
-int manage_key(Editor *ute) {
-    int ch = getch();
-
+void handle_insert_mode(Editor *ute, int ch) {
     Buffer *buffer = current_buffer(ute);
-    if (ch == KEY_RESIZE) {
-        getmaxyx(stdscr, ute->screen_height, ute->screen_width);
-        return 0;
-    }
-
-    switch(ute->mode) {
-        case NORMAL_MODE:
-            handle_normal_mode(ute, ch);
+    switch (ch) {
+        case KEY_ESCAPE:
+        case KEY_CTRL('c'):
+            if(buffer->history.current.kind != CMD_NONE) {
+                ute_da_append(&buffer->history.undo_list, buffer->history.current);
+                buffer->history.current = (Command) {0};
+            }
+            ute->mode = NORMAL_MODE;
             break;
-        case INSERT_MODE:
-        {
-            switch (ch) {
-                case KEY_ESCAPE:
-                case KEY_CTRL('c'):
-                    if(buffer->history.current.kind != CMD_NONE) {
-                        ute_da_append(&buffer->history.undo_list, buffer->history.current);
-                        buffer->history.current = (Command) {0};
-                    }
-                    ute->mode = NORMAL_MODE;
-                    break;
-                // case KEY_DOWN:
-                //     buffer_next_line(buffer);
-                //     break;
-                // case KEY_UP:
-                //     buffer_prev_line(buffer);
-                //     break;
-                // case KEY_RIGHT:
-                //     buffer_right(buffer);
-                //     break;
-                // case KEY_LEFT:
-                //     buffer_left(buffer);
-                //     break;
-                case KEY_DC:
-                    buffer_right(buffer);
-                    Command *command = &buffer->history.current;
-                    if(command->kind != CMD_DELETE) {
-                        if(command->kind != CMD_NONE) {
-                            ute_da_append(&buffer->history.undo_list, *command);
-                            *command = (Command){0};
-                        }
-                        command->kind = CMD_DELETE;
-                        command->cursor_start = buffer->cursor - 1;
-                        command->cursor_end = buffer->cursor - 1;
-                    }
-                    ute_da_append(&command->sb, buffer->data[buffer->cursor-1]);
-                    command->cursor_end++;
-                    buffer_remove(buffer);
-                    buffer->dirty = 1;
-                    ute->display.up_to_date = false;
-                    break;
-                case 127:
-                case KEY_BACKSPACE:
-                {
-                    history_delete_char(&buffer->history, buffer->cursor, buffer->data[buffer->cursor - 1]);
-                    buffer_remove(buffer);
-                    buffer->dirty = 1;
-                    ute->display.up_to_date = false;
-                } break;
-                default:
-                {
-                    // TODO: Combine the insert actions to be only one and being limited
-                    // to a String Builder
+            // case KEY_DOWN:
+            //     buffer_next_line(buffer);
+            //     break;
+            // case KEY_UP:
+            //     buffer_prev_line(buffer);
+            //     break;
+            // case KEY_RIGHT:
+            //     buffer_right(buffer);
+            //     break;
+            // case KEY_LEFT:
+            //     buffer_left(buffer);
+            //     break;
+        case KEY_DC:
+            buffer_right(buffer);
+            Command *command = &buffer->history.current;
+            if(command->kind != CMD_DELETE) {
+                if(command->kind != CMD_NONE) {
+                    ute_da_append(&buffer->history.undo_list, *command);
+                    *command = (Command){0};
+                }
+                command->kind = CMD_DELETE;
+                command->cursor_start = buffer->cursor - 1;
+                command->cursor_end = buffer->cursor - 1;
+            }
+            ute_da_append(&command->sb, buffer->data[buffer->cursor-1]);
+            command->cursor_end++;
+            buffer_remove(buffer);
+            buffer->dirty = 1;
+            ute->display.up_to_date = false;
+            break;
+        case 127:
+        case KEY_BACKSPACE:
+            {
+                history_delete_char(&buffer->history, buffer->cursor, buffer->data[buffer->cursor - 1]);
+                buffer_remove(buffer);
+                buffer->dirty = 1;
+                ute->display.up_to_date = false;
+            } break;
+        default:
+            {
+                // TODO: Combine the insert actions to be only one and being limited
+                // to a String Builder
 
-                    if(is_printable(ch)) {
-                        // Convert tab key to multiple spaces
-                        if(EXPAND_TAB && ch == '\t') {
-                            for(int i = 0; i < TAB_TO_SPACE; i++) {
-                                history_insert_char(&buffer->history, buffer->cursor, ' ');
-                                buffer_insert(buffer, ' ');
-                            }
-                        } else {
-                            history_insert_char(&buffer->history, buffer->cursor, ch);
-                            buffer_insert(buffer, ch);
+                if(is_printable(ch)) {
+                    // Convert tab key to multiple spaces
+                    if(EXPAND_TAB && ch == '\t') {
+                        for(int i = 0; i < TAB_TO_SPACE; i++) {
+                            history_insert_char(&buffer->history, buffer->cursor, ' ');
+                            buffer_insert(buffer, ' ');
                         }
-                        buffer->dirty = 1;
-                        ute->display.up_to_date = false;
+                    } else {
+                        history_insert_char(&buffer->history, buffer->cursor, ch);
+                        buffer_insert(buffer, ch);
                     }
+                    buffer->dirty = 1;
+                    ute->display.up_to_date = false;
                 }
             }
-        } break;
+    }
+}
+int manage_key(Editor *ute, int ch) {
+    switch(ute->mode) {
+        case NORMAL_MODE: handle_normal_mode(ute, ch); break;
+        case INSERT_MODE: handle_insert_mode(ute, ch); break;
     }
     return 0;
 }

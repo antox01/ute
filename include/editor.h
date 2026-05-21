@@ -55,7 +55,7 @@ String_View read_command_line(Editor *ute, const char* msg);
 
 void print_status_line(Editor *ute);
 void print_command_line(Editor *ute, const char* msg);
-int manage_key(Editor *ute);
+int manage_key(Editor *ute, int ch);
 
 
 

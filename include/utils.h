@@ -29,9 +29,9 @@
 #define MAX_STR_SIZE 256
 
 #if __has_attribute(__fallthrough__)
-# define fallthrough                    __attribute__((__fallthrough__))
+# define ute_fallthrough                    __attribute__((__fallthrough__))
 #else
-# define fallthrough                    do {} while (0)  /* fallthrough */
+# define ute_fallthrough                    do {} while (0)  /* fallthrough */
 #endif
 
 
