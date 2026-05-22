@@ -13,6 +13,88 @@
 
 char *shift_args(int *argc, char ***argv);
 
+void print_status_line(Editor *ute) {
+    Buffer *buffer = current_buffer(ute);
+    int sline_pos = ute->screen_height - STATUS_LINE_SPACE;
+    int sline_right_start = ute->screen_width - STATUS_LINE_RIGHT_CHAR;
+    char str[MAX_STR_SIZE] = {0};
+    int left_len = 0;
+    int cy, cx;
+
+    buffer_posyx(buffer, buffer->cursor, &cy, &cx);
+    if (buffer->file_name) {
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", buffer->file_name);
+    } else {
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", "[New File]");
+    }
+    if(buffer->dirty && left_len < MAX_STR_SIZE - 1)
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", " [+]");
+
+    if(ute->mode == INSERT_MODE && left_len < MAX_STR_SIZE - 1)
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", " (INSERT)");
+    else if(ute->mode == NORMAL_MODE && left_len < MAX_STR_SIZE - 1)
+        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", " (NORMAL)");
+
+
+    memset(&str[left_len], ' ', sline_right_start - left_len);
+    int right_len = snprintf(&str[sline_right_start], MAX_STR_SIZE - sline_right_start,
+            "%d,%d", cy /* + buffer->scrolly */ + 1, cx + 1);
+    memset(&str[sline_right_start + right_len], ' ', ute->screen_width - right_len - sline_right_start);
+    str[ute->screen_width] = '\0';
+    attron(A_REVERSE);
+    move(sline_pos, 0);
+    addstr(str);
+    attroff(A_REVERSE);
+}
+
+void print_command_line(Editor *ute, const char* msg) {
+    int start = ute->command.cursor;
+    Display *display = &ute->display;
+    move(ute->screen_height - 1, 0);
+    if(ute->command.capacity > 0) {
+        while(start >= 0 && ute->command.data[start] != '\n') start--;
+        start++;
+    }
+    UTE_ASSERT(start >= 0, "Impossible");
+    ute->display.count = 0;
+    int msg_len = strlen(msg);
+    if(msg != NULL &&  msg_len > 0) ute_da_append_many(display, msg, msg_len);
+    ute_da_append_many(display, &ute->command.data[start], ((int)ute->command.cursor - start));
+    int command_cx = display->count;
+
+    while(display->count < (size_t) ute->screen_width) ute_da_append(display, ' ');
+    addnstr(display->data, ute->display.count);
+    move(ute->screen_height - 1, command_cx);
+}
+
+String_View read_command_line(Editor *ute, const char* msg) {
+    int start = 0;
+    String_View ret = {0};
+    start = ute->command.cursor;
+    print_command_line(ute, msg);
+    int ch = getch();
+    while (ch != '\n' && ch != KEY_CTRL('c')) {
+        if(ch == 127 || ch == KEY_BACKSPACE) {
+            buffer_remove(&ute->command);
+        } else {
+            buffer_insert(&ute->command, ch);
+        }
+        print_command_line(ute, msg);
+        ch = getch();
+    }
+    if(ch != KEY_CTRL('c')) {
+        ret = (String_View){
+            .data = &ute->command.data[start],
+            .count = ute->command.cursor - start,
+        };
+        buffer_insert(&ute->command, '\n');
+    } else {
+        ute->command.cursor = start;
+    }
+    return ret;
+}
+
+
 void render_display(Editor *ute) {
     int cy, cx;
     Buffer *buffer = current_buffer(ute);

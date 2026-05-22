@@ -27,6 +27,7 @@ typedef struct {
 typedef enum {
     NORMAL_MODE = 0,
     INSERT_MODE,
+    COMMAND_MODE,
 } Editor_Mode;
 
 typedef enum {
@@ -44,6 +45,7 @@ typedef struct editor {
     char cwd[MAX_STR_SIZE];
     Buffer command;
     Editor_Mode mode;
+    Editor_Mode mode_before_prompt;
 
     Editor_Normal_State normal_state;
     Operator_Func *operator;

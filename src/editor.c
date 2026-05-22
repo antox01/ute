@@ -6,151 +6,33 @@
 #include "utils.h"
 
 Buffer *current_buffer(Editor *ute) {
-    if(ute->buffers.count > 0)
+    if(ute->buffers.count > 0 && (size_t) ute->curr_buffer < ute->buffers.count)
         return &ute->buffers.data[ute->curr_buffer];
     return NULL;
 }
 
-void print_command_line(Editor *ute, const char* msg) {
-    int start = ute->command.cursor;
-    Display *display = &ute->display;
-    move(ute->screen_height - 1, 0);
-    if(ute->command.capacity > 0) {
-        while(start >= 0 && ute->command.data[start] != '\n') start--;
-        start++;
-    }
-    UTE_ASSERT(start >= 0, "Impossible");
-    ute->display.count = 0;
-    int msg_len = strlen(msg);
-    if(msg != NULL &&  msg_len > 0) ute_da_append_many(display, msg, msg_len);
-    ute_da_append_many(display, &ute->command.data[start], ((int)ute->command.cursor - start));
-    int command_cx = display->count;
-
-    while(display->count < (size_t) ute->screen_width) ute_da_append(display, ' ');
-    addnstr(display->data, ute->display.count);
-    move(ute->screen_height - 1, command_cx);
-}
-
-
 int editor_search_word(Editor *ute) {
-    Buffer *gb = current_buffer(ute);
-    int saved_cursor = gb->cursor;
-    String_View query = {0};
-    int start = ute->command.cursor;
-
-    int quit = 0;
-    int forward = 0;
-    int last_match = -1;
-    size_t gb_size = buffer_size(gb);
-
-    // NOTE: Start the search from the current position
-    size_t cur_char = gb->cursor;
-
-    char *search_message = "Search: ";
-    print_command_line(ute, search_message);
-    while(1) {
-        int ch = getch();
-        switch(ch) {
-            case '\n':
-                quit = 1;
-                break;
-            case KEY_CTRL('c'):
-                // Reset the buffer when encounter C-c
-                buffer_set_cursor(gb, saved_cursor);
-                ute->command.cursor = start;
-                return 0;
-            case KEY_CTRL('f'):
-                forward = 1;
-                break;
-            case 127:
-            case KEY_BACKSPACE:
-                buffer_remove(&ute->command);
-                break;
-            default:
-                buffer_insert(&ute->command, ch);
-        }
-        query.data = &ute->command.data[start];
-        query.count = ute->command.cursor - start;
-        print_command_line(ute, search_message);
-        if(quit) break;
-
-        // Search in the buffer the word
-        while(cur_char < gb_size) {
-            if(forward && last_match == (int) cur_char) {
-                cur_char++;
-                continue;
-            }
-            if(cur_char + query.count < gb_size
-                    && strncmp(&gb->sb.data[cur_char], query.data, query.count) == 0) {
-                ute->display.highlight_search = cur_char;
-                ute->display.highlight_count = query.count;
-                break;
-            }
-            cur_char++;
-        }
-        if(cur_char < gb_size) {
-            last_match = cur_char;
-            buffer_set_cursor(gb, cur_char);
-            ute->display.up_to_date = false;
-            forward = 0;
-            update_display(ute);
-            print_command_line(ute, search_message);
-        } else if(forward){
-            cur_char = saved_cursor;
-            forward = 0;
-        }
-    }
-    buffer_set_cursor(gb, last_match);
-    ute->command.cursor = start;
-    return 0;
+    (void) ute;
+    UTE_ASSERT(false, "TODO: editor_search_word");
 }
 
 int editor_open(Editor *ute) {
-    int ret = 1;
-    String_View sv;
-
-    sv = read_command_line(ute, "Open file: ");
-    if(sv.count == 0) return 0;
-    char *file_name = sv_to_cstr(sv);
-    String_Builder sb = {0};
-    if(read_file(&sb, file_name)) {
-        Buffer buffer = {0};
-        buffer_insert_str(&buffer, sb.data, sb.count);
-        buffer.file_name = file_name;
-        buffer_set_cursor(&buffer, 0);
-        ute_da_append(&ute->buffers, buffer);
-        ute->curr_buffer = ute->buffers.count - 1;
-        ute->display.up_to_date = false;
-    } else {
-        // TODO: add error reporting
-        ret = 0;
-    }
-
-    if(sb.max_size > 0) free(sb.data);
-    return ret;
+    (void) ute;
+    UTE_ASSERT(false, "TODO: editor_open");
 }
 
 int editor_command(Editor *ute) {
-    String_View sv;
-
-    sv = read_command_line(ute, ": ");
-    if(sv.count == 0) return 0;
-    Command_Func *func = command_search_name(sv);
-    if(func != NULL) {
-        func(ute);
-    } else {
-        // TODO: error reporting
-    }
+    (void) ute;
+    UTE_ASSERT(false, "TODO: editor_command");
     return 1;
 }
 
 int editor_write(Editor *ute) {
     Buffer *buffer = current_buffer(ute);
-    String_View sv = {0};
 
     if(buffer->file_name == NULL) {
-        sv = read_command_line(ute, "Save file: ");
-        if(sv.count > 0) buffer->file_name = sv_to_cstr(sv);
+        UTE_ASSERT(false, "TODO: Prompt not implemented");
+        return 1;
     }
 
     FILE *fout = fopen(buffer->file_name, "w");
@@ -263,67 +145,6 @@ void update_display(Editor *ute) {
     buffer_set_cursor(buffer, saved_cursor);
 }
 
-String_View read_command_line(Editor *ute, const char* msg) {
-    int start = 0;
-    String_View ret = {0};
-    start = ute->command.cursor;
-    print_command_line(ute, msg);
-    int ch = getch();
-    while (ch != '\n' && ch != KEY_CTRL('c')) {
-        if(ch == 127 || ch == KEY_BACKSPACE) {
-            buffer_remove(&ute->command);
-        } else {
-            buffer_insert(&ute->command, ch);
-        }
-        print_command_line(ute, msg);
-        ch = getch();
-    }
-    if(ch != KEY_CTRL('c')) {
-        ret = (String_View){
-            .data = &ute->command.data[start],
-            .count = ute->command.cursor - start,
-        };
-        buffer_insert(&ute->command, '\n');
-    } else {
-        ute->command.cursor = start;
-    }
-    return ret;
-}
-
-void print_status_line(Editor *ute) {
-    Buffer *buffer = current_buffer(ute);
-    int sline_pos = ute->screen_height - STATUS_LINE_SPACE;
-    int sline_right_start = ute->screen_width - STATUS_LINE_RIGHT_CHAR;
-    char str[MAX_STR_SIZE] = {0};
-    int left_len = 0;
-    int cy, cx;
-
-    buffer_posyx(buffer, buffer->cursor, &cy, &cx);
-    if (buffer->file_name) {
-        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", buffer->file_name);
-    } else {
-        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", "[New File]");
-    }
-    if(buffer->dirty && left_len < MAX_STR_SIZE - 1)
-        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", " [+]");
-
-    if(ute->mode == INSERT_MODE && left_len < MAX_STR_SIZE - 1)
-        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", " (INSERT)");
-    else if(ute->mode == NORMAL_MODE && left_len < MAX_STR_SIZE - 1)
-        left_len += snprintf(&str[left_len], MAX_STR_SIZE, "%s", " (NORMAL)");
-
-
-    memset(&str[left_len], ' ', sline_right_start - left_len);
-    int right_len = snprintf(&str[sline_right_start], MAX_STR_SIZE - sline_right_start,
-            "%d,%d", cy /* + buffer->scrolly */ + 1, cx + 1);
-    memset(&str[sline_right_start + right_len], ' ', ute->screen_width - right_len - sline_right_start);
-    str[ute->screen_width] = '\0';
-    attron(A_REVERSE);
-    move(sline_pos, 0);
-    addstr(str);
-    attroff(A_REVERSE);
-}
-
 int editor_buffers_next(Editor *ute) {
     int next_buffer = ute->curr_buffer + 1;
     int buffers_count = ute->buffers.count;
@@ -405,7 +226,7 @@ void handle_normal_mode(Editor *ute, int ch) {
                 ute->display.up_to_date = false;
                 break;
             case ':':
-                editor_command(ute);
+                UTE_ASSERT(false, "TODO: Prompt not implemented");
                 break;
             case 'g':
                 {
@@ -434,9 +255,6 @@ void handle_normal_mode(Editor *ute, int ch) {
                 {
                     editor_redo(ute);
                 } break;
-            // case KEY_CTRL('c'):
-            //     editor_quit(ute);
-            //     break;
             case KEY_CTRL('s'):
                 editor_write(ute);
                 break;
@@ -465,10 +283,6 @@ void handle_insert_mode(Editor *ute, int ch) {
     switch (ch) {
         case KEY_ESCAPE:
         case KEY_CTRL('c'):
-            if(buffer->history.current.kind != CMD_NONE) {
-                ute_da_append(&buffer->history.undo_list, buffer->history.current);
-                buffer->history.current = (Command) {0};
-            }
             ute->mode = NORMAL_MODE;
             break;
             // case KEY_DOWN:
@@ -484,23 +298,27 @@ void handle_insert_mode(Editor *ute, int ch) {
             //     buffer_left(buffer);
             //     break;
         case KEY_DC:
-            buffer_right(buffer);
-            Command *command = &buffer->history.current;
-            if(command->kind != CMD_DELETE) {
-                if(command->kind != CMD_NONE) {
-                    ute_da_append(&buffer->history.undo_list, *command);
-                    *command = (Command){0};
-                }
-                command->kind = CMD_DELETE;
-                command->cursor_start = buffer->cursor - 1;
-                command->cursor_end = buffer->cursor - 1;
-            }
-            ute_da_append(&command->sb, buffer->data[buffer->cursor-1]);
-            command->cursor_end++;
-            buffer_remove(buffer);
-            buffer->dirty = 1;
-            ute->display.up_to_date = false;
-            break;
+            {
+                // buffer_right(buffer);
+                // Command *command = &buffer->history.current;
+                // if(command->kind != CMD_DELETE) {
+                //     if(command->kind != CMD_NONE) {
+                //         ute_da_append(&buffer->history.undo_list, *command);
+                //         *command = (Command){0};
+                //     }
+                //     command->kind = CMD_DELETE;
+                //     command->cursor_start = buffer->cursor - 1;
+                //     command->cursor_end = buffer->cursor - 1;
+                // }
+                // ute_da_append(&command->sb, buffer->data[buffer->cursor-1]);
+                // command->cursor_end++;
+                // buffer_remove(buffer);
+                // buffer->dirty = 1;
+                // ute->display.up_to_date = false;
+                Operator_Func *operator = bindings_get_operator('d');
+                Motion_Func *motion = bindings_get_motion('l');
+                operator(ute, motion(ute));
+            } break;
         case 127:
         case KEY_BACKSPACE:
             {
@@ -531,10 +349,18 @@ void handle_insert_mode(Editor *ute, int ch) {
             }
     }
 }
+
+void handle_command_mode(Editor *ute, int ch) {
+    (void) ute;
+    (void) ch;
+    UTE_ASSERT(false, "TODO: handle_command_mode not implemented");
+}
+
 int manage_key(Editor *ute, int ch) {
     switch(ute->mode) {
         case NORMAL_MODE: handle_normal_mode(ute, ch); break;
         case INSERT_MODE: handle_insert_mode(ute, ch); break;
+        case COMMAND_MODE: handle_command_mode(ute, ch); break;
     }
     return 0;
 }
