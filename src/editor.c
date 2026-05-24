@@ -22,9 +22,9 @@ int editor_open(Editor *ute) {
 }
 
 void editor_search_command(Editor *ute, String_View sv) {
-    (void) ute;
-    (void) sv;
-    UTE_ASSERT(false, "TODO: editor_search_command");
+    Command_Func *command_func = command_search_name(sv);
+    UTE_ASSERT(command_func != NULL, "ERROR: command_search_name returned NULL");
+    command_func(ute);
 }
 
 void editor_prompt(Editor *ute, char *prompt, Prompt_Callback *callback) {
@@ -395,14 +395,19 @@ void handle_command_mode(Editor *ute, int ch) {
                 buffer_remove(buffer);
             } break;
         case '\n':
+        case '\r':
             {
-                buffer_insert(buffer, ch);
+                // Buffer only parses '\n' as new line for now
+                buffer_insert(buffer, '\n');
                 Line line = buffer->lines.data[buffer->lines.count - 1];
                 String_View result = {
                     .data = &buffer->sb.data[line.start],
                     .count = line.end - line.start,
                 };
+                UTE_ASSERT(ute->prompt_callback != NULL, "ERROR: prompt_callback was not set correctly");
                 ute->prompt_callback(ute, result);
+
+                ute->mode = NORMAL_MODE;
             } break;
         default:
             {

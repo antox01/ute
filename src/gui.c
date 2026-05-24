@@ -553,9 +553,12 @@ int main(int argc, char **argv) {
         RGFW_event event;
         if(RGFW_window_checkEvent(window, &event) == RGFW_TRUE) {
             if(event.type == RGFW_keyPressed) {
+                // printf("%d\n", event.key.sym);
                 manage_key(&ute, event.key.sym);
             }
         }
+
+        if(ute.quit) break;
 
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT);
