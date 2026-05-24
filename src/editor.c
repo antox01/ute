@@ -21,9 +21,22 @@ int editor_open(Editor *ute) {
     UTE_ASSERT(false, "TODO: editor_open");
 }
 
-int editor_command(Editor *ute) {
+void editor_search_command(Editor *ute, String_View sv) {
     (void) ute;
-    UTE_ASSERT(false, "TODO: editor_command");
+    (void) sv;
+    UTE_ASSERT(false, "TODO: editor_search_command");
+}
+
+void editor_prompt(Editor *ute, char *prompt, Prompt_Callback *callback) {
+    ute->mode = COMMAND_MODE;
+    ute->prompt = prompt;
+    ute->prompt_callback = callback;
+
+    ute->command.cursor = 0;
+}
+
+int editor_command(Editor *ute) {
+    editor_prompt(ute, ":", editor_search_command);
     return 1;
 }
 
@@ -226,7 +239,8 @@ void handle_normal_mode(Editor *ute, int ch) {
                 ute->display.up_to_date = false;
                 break;
             case ':':
-                UTE_ASSERT(false, "TODO: Prompt not implemented");
+                editor_command(ute);
+                // UTE_ASSERT(false, "TODO: Prompt not implemented");
                 break;
             case 'g':
                 {
@@ -351,9 +365,55 @@ void handle_insert_mode(Editor *ute, int ch) {
 }
 
 void handle_command_mode(Editor *ute, int ch) {
-    (void) ute;
-    (void) ch;
-    UTE_ASSERT(false, "TODO: handle_command_mode not implemented");
+    Buffer *buffer = &ute->command;
+    switch (ch) {
+        case KEY_ESCAPE:
+        case KEY_CTRL('c'):
+            ute->mode = NORMAL_MODE;
+            break;
+        // case KEY_DOWN:
+        //     buffer_next_line(buffer);
+        //     break;
+        // case KEY_UP:
+        //     buffer_prev_line(buffer);
+        //     break;
+        // case KEY_RIGHT:
+        //     buffer_right(buffer);
+        //     break;
+        // case KEY_LEFT:
+        //     buffer_left(buffer);
+        //     break;
+        case KEY_DC:
+            {
+                buffer_right(buffer);
+                buffer_remove(buffer);
+                buffer->dirty = 1;
+            } break;
+        case 127:
+        case KEY_BACKSPACE:
+            {
+                buffer_remove(buffer);
+            } break;
+        case '\n':
+            {
+                buffer_insert(buffer, ch);
+                Line line = buffer->lines.data[buffer->lines.count - 1];
+                String_View result = {
+                    .data = &buffer->sb.data[line.start],
+                    .count = line.end - line.start,
+                };
+                ute->prompt_callback(ute, result);
+            } break;
+        default:
+            {
+                if(is_printable(ch)) {
+                    buffer_insert(buffer, ch);
+                }
+            }
+    }
+    // TODO: find a way to optimize the number of calls of this function
+    buffer_parse_line(buffer);
+    // UTE_ASSERT(false, "TODO: handle_command_mode not implemented");
 }
 
 int manage_key(Editor *ute, int ch) {

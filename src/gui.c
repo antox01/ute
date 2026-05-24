@@ -412,6 +412,31 @@ char *shift_args(int *argc, char ***argv) {
     return arg;
 }
 
+void render_prompt(Editor *ute) {
+    if(ute->mode != COMMAND_MODE) return;
+
+    float char_width = measure_text("A", 1, FONT_SCALE);
+    float char_height = FONT_SCALE*FONT_SIZE;
+
+    size_t width = ute->screen_width * char_width;
+    size_t ypos = (ute->screen_height - 1) * char_height;
+
+    size_t command_pos = 0;
+
+    if(ute->prompt != NULL) {
+        command_pos = render_text(ute->prompt, strlen(ute->prompt), 4, ypos, FONT_SCALE, WHITE);
+    }
+
+    if(ute->command.lines.count > 0) {
+        Line line = ute->command.lines.data[ute->command.lines.count - 1];
+        String_View sv = { .data = &ute->command.sb.data[line.start], .count = line.end - line.start};
+
+        command_pos = render_text(sv.data, sv.count, 4 + command_pos, ypos, FONT_SCALE, WHITE);
+    }
+
+    render_cursor(command_pos, ypos, 5, char_height, WHITE);
+}
+
 void render_display(Editor *ute) {
     int cy, cx;
     Buffer *buffer = current_buffer(ute);
@@ -536,6 +561,8 @@ int main(int argc, char **argv) {
         glClear(GL_COLOR_BUFFER_BIT);
         update_display(&ute);
         render_display(&ute);
+
+        render_prompt(&ute);
 
         RGFW_window_swapBuffers_OpenGL(window);
     }

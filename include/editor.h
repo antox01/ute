@@ -24,6 +24,8 @@ typedef struct {
     size_t highlight_count;
 } Display;
 
+typedef void Prompt_Callback(Editor *, String_View);
+
 typedef enum {
     NORMAL_MODE = 0,
     INSERT_MODE,
@@ -49,6 +51,9 @@ typedef struct editor {
 
     Editor_Normal_State normal_state;
     Operator_Func *operator;
+
+    char *prompt;
+    Prompt_Callback *prompt_callback;
 } Editor;
 
 Buffer *current_buffer(Editor *ute);
