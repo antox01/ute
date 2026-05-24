@@ -27,7 +27,9 @@
 #define FONT_SCALE 0.5
 
 typedef struct {
-    unsigned int texture;
+    float texture_start; // Normalized
+    float texture_end; // Normalized
+    float texture_vertical_end; // Normalized
     float width, height;
     float bearing_left, bearing_top;
     unsigned int advance;
@@ -36,6 +38,7 @@ typedef struct {
 typedef struct {
     GLuint vao, vbo;
     unsigned int shader_program;
+    unsigned int texture_atlas;
 
     Character characters[256];
 } Text_Renderer;
@@ -62,7 +65,11 @@ typedef struct {
 #define WHITE ((Color) {.r = 0xff, .b = 0xff, .g = 0xff, .a = 0xff})
 #define BLACK ((Color) {.r = 0x0, .b = 0x0, .g = 0x0, .a = 0x0})
 
-Editor ute = {.screen_height = SCREEN_HEIGHT, .screen_width = SCREEN_WIDTH};
+typedef struct {
+    float x, y, z, w;
+} Vec4f;
+
+Editor ute = {0};
 
 const char *vertex_shader_str = 
 "#version 330 core\n"
@@ -140,21 +147,35 @@ bool init_text_renderer() {
     }
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1); 
 
-    for(int c = 0; c < 128; c++) {
+    int atlas_width = 0;
+    int atlas_height = 0;
+
+    for(int c = 32; c < 128; c++) {
         ft_error = FT_Load_Char(face, c, FT_LOAD_RENDER);
         if(ft_error) continue;
+        atlas_width += face->glyph->bitmap.width;
+        if(face->glyph->bitmap.rows > atlas_height) {
+            atlas_height = face->glyph->bitmap.rows;
+        }
+    }
 
-        unsigned int texture;
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width, face->glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    unsigned char *atlas = calloc(atlas_width * atlas_height, sizeof(*atlas));
+    int atlas_offset = 0;
+    for(int c = 32; c < 128; c++) {
+        ft_error = FT_Load_Char(face, c, FT_LOAD_RENDER);
+        if(ft_error) continue;
+        FT_Bitmap *bitmap = &face->glyph->bitmap;
+
+        for(int br = 0; br < bitmap->rows; br++) {
+            for(int bx = 0; bx < bitmap->width; bx++) {
+                atlas[br*atlas_width + bx + atlas_offset] = bitmap->buffer[bx + br*bitmap->pitch];
+            }
+        }
 
         Character ch = {
-            .texture = texture,
+            .texture_start = (float) atlas_offset / (float) atlas_width,
+            .texture_end = (float) (atlas_offset + bitmap->width) / (float) atlas_width,
+            .texture_vertical_end = (float) bitmap->rows / (float) atlas_height,
             .width = face->glyph->bitmap.width,
             .height = face->glyph->bitmap.rows,
             .bearing_left = face->glyph->bitmap_left,
@@ -163,7 +184,17 @@ bool init_text_renderer() {
         };
 
         text_renderer.characters[c] = ch;
+        atlas_offset += bitmap->width;
     }
+    glGenTextures(1, &text_renderer.texture_atlas);
+    glBindTexture(GL_TEXTURE_2D, text_renderer.texture_atlas);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, atlas_width, atlas_height, 0, GL_RED, GL_UNSIGNED_BYTE, atlas);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    free(atlas);
 
     FT_Done_Face(face);
     FT_Done_FreeType(library);
@@ -274,19 +305,29 @@ float measure_text(char *str, size_t str_len, float scale) {
 }
 
 float render_text(char *str, size_t str_len, float x, float y, float scale, Color color) {
+
+    float char_width = measure_text("A", 1, FONT_SCALE);
+    float char_height = FONT_SCALE*FONT_SIZE;
+
+    float screen_width = ute.screen_width * char_width;
+    float screen_height = ute.screen_height * char_height;
     glUseProgram(text_renderer.shader_program);
     glUniform4f(glGetUniformLocation(text_renderer.shader_program, "text_color"), (float)color.r/255.0, (float)color.g/255.0, (float)color.b/255.0, (float)color.a/255.0);
-    glUniform2f(glGetUniformLocation(text_renderer.shader_program, "screen_sizes"), (float) ute.screen_width, (float) ute.screen_height);
+    glUniform2f(glGetUniformLocation(text_renderer.shader_program, "screen_sizes"), (float) screen_width, (float) screen_height);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(text_renderer.vao);
 
+    glBindTexture(GL_TEXTURE_2D, text_renderer.texture_atlas);
     float penx = x;
+
+    Vec4f *vertices = calloc(str_len * 6, sizeof(Vec4f));
+    int vertices_index = 0;
 
     for (size_t i = 0; i < str_len; i++) {
         Character ch = text_renderer.characters[str[i]];
 
         float xpos = penx + ch.bearing_left * scale;
-        float ypos = ute.screen_height - FONT_SIZE*scale - y - (ch.height - ch.bearing_top) * scale;
+        float ypos = screen_height - y - FONT_SIZE*scale - (ch.height - ch.bearing_top) * scale;
 
         float w = ch.width * scale;
         float h = ch.height * scale;
@@ -305,37 +346,43 @@ float render_text(char *str, size_t str_len, float x, float y, float scale, Colo
          * xpos +------+
          * ypos 
          */
-        float vertices[6][4] = {
-            {xpos,     ypos + h, 0.0f, 0.0f},
-            {xpos,     ypos,     0.0f, 1.0f},
-            {xpos + w, ypos,     1.0f, 1.0f},
+        vertices[vertices_index++] = (Vec4f){xpos,     ypos + h, ch.texture_start, 0.0f};
+        vertices[vertices_index++] = (Vec4f){xpos,     ypos,     ch.texture_start, ch.texture_vertical_end};
+        vertices[vertices_index++] = (Vec4f){xpos + w, ypos,     ch.texture_end, ch.texture_vertical_end};
 
-            {xpos,     ypos + h, 0.0f, 0.0f},
-            {xpos + w, ypos,     1.0f, 1.0f},
-            {xpos + w, ypos + h, 1.0f, 0.0f},
-        };
+        vertices[vertices_index++] = (Vec4f){xpos,     ypos + h, ch.texture_start, 0.0f};
+        vertices[vertices_index++] = (Vec4f){xpos + w, ypos,     ch.texture_end, ch.texture_vertical_end};
+        vertices[vertices_index++] = (Vec4f){xpos + w, ypos + h, ch.texture_end, 0.0f};
 
-        glBindTexture(GL_TEXTURE_2D, ch.texture);
-        glBindBuffer(GL_ARRAY_BUFFER, text_renderer.vbo);
-        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         penx += (ch.advance >> 6)*scale;
     }
+    glBindBuffer(GL_ARRAY_BUFFER, text_renderer.vbo);
+    glBufferData(GL_ARRAY_BUFFER, vertices_index * sizeof(*vertices), vertices, GL_DYNAMIC_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, vertices_index);
 
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    free(vertices);
     return penx;
 }
 
 void render_cursor(float x, float y, float w, float h, Color color) {
+
+    float char_width = measure_text("A", 1, FONT_SCALE);
+    float char_height = FONT_SCALE*FONT_SIZE;
+
+    float screen_width = ute.screen_width * char_width;
+    float screen_height = ute.screen_height * char_height;
+
     glUseProgram(cursor_renderer.shader_program);
     glUniform4f(glGetUniformLocation(cursor_renderer.shader_program, "cursor_color"), (float)color.r/255.0, (float)color.g/255.0, (float)color.b/255.0, (float)color.a/255.0);
-    glUniform2f(glGetUniformLocation(cursor_renderer.shader_program, "screen_sizes"), (float) ute.screen_width, (float) ute.screen_height);
+    glUniform2f(glGetUniformLocation(cursor_renderer.shader_program, "screen_sizes"), (float) screen_width, (float) screen_height);
     glBindVertexArray(cursor_renderer.vao);
 
-    float ypos = ute.screen_height - y - h;
+    float ypos = screen_height - y - h;
 
     float vertices[6][4] = {
         {x,     ypos + h, 0.0f, 0.0f},
@@ -374,13 +421,13 @@ void render_display(Editor *ute) {
     buffer_posyx(buffer, saved_cursor, &cy, &cx);
 
     UTE_ASSERT(cx >= 0 && cy >= 0, "ERROR: got cx or cy negative");
-
-    size_t width = ute->screen_width;
-    size_t height = ute->screen_height;
     
     // NOTE: This assumes monospace characters
     float char_width = measure_text("A", 1, FONT_SCALE);
     float char_height = FONT_SCALE*FONT_SIZE;
+
+    size_t width = ute->screen_width * char_width;
+    size_t height = (ute->screen_height - 1)* char_height;
 
     int cur_x = 0;
     int cur_y = 0;
@@ -414,9 +461,12 @@ void render_display(Editor *ute) {
 
 void window_resizes(RGFW_window *win, i32 w, i32 h) {
     (void) win;
-    printf("Callback called, w:%d, h:%d\n", w, h);
-    ute.screen_width = w;
-    ute.screen_height = h;
+    // printf("Callback called, w:%d, h:%d\n", w, h);
+    float char_width = measure_text("A", 1, FONT_SCALE);
+    float char_height = FONT_SCALE*FONT_SIZE;
+
+    ute.screen_width = w / char_width;
+    ute.screen_height = h/ char_height;
 }
 
 int main(int argc, char **argv) {
@@ -440,6 +490,10 @@ int main(int argc, char **argv) {
     if(!init_text_renderer()) return 1;
     if(!init_cursor_renderer()) return 1;
 
+    float char_width = measure_text("A", 1, FONT_SCALE);
+    float char_height = FONT_SCALE*FONT_SIZE;
+    ute.screen_width = SCREEN_WIDTH / char_width;
+    ute.screen_height = SCREEN_HEIGHT / char_height;
     if(!compile_text_shaders()) return 1;
     if(!compile_cursor_shaders()) return 1;
 
